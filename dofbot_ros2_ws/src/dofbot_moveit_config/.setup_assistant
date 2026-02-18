@@ -1,0 +1,10 @@
+moveit_setup_assistant_config:
+  urdf:
+    package: dofbot_description
+    relative_path: urdf/dofbot.urdf.xacro
+  srdf:
+    relative_path: config/yahboom_dofbot.srdf
+  package_settings:
+    author_name: Adesanya David
+    author_email: jesugbohunmi23@gmail.com
+    generated_timestamp: 1771187227

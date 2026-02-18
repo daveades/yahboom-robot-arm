@@ -1,0 +1,9 @@
+<library path="dofbot_ros2_control">
+  <class name="dofbot_ros2_control/DofbotTopicHardware"
+         type="dofbot_ros2_control::DofbotTopicHardware"
+         base_class_type="hardware_interface::SystemInterface">
+    <description>
+      Topic-bridged hardware interface for DOFBOT.
+    </description>
+  </class>
+</library>

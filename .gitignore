@@ -1,0 +1,19 @@
+# ROS 2 workspace artifacts
+/dofbot_ros2_ws/build/
+/dofbot_ros2_ws/install/
+/dofbot_ros2_ws/log/
+
+# Python caches
+**/__pycache__/
+*.pyc
+*.pyo
+
+# Editor/temp files
+*.swp
+*.swo
+
+# ROS user data
+/.ros/
+
+# Rosbags
+*.db3
