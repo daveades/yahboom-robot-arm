@@ -1,0 +1,4 @@
+red_cube
+blue_cube
+green_cube
+yellow_cube
