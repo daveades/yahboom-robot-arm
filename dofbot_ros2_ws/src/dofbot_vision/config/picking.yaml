@@ -2,20 +2,20 @@ pick_from_detections:
   ros__parameters:
     detections_topic: /detections
     joint_state_topic: /joint_states
-    target_classes: "red,blue,green,yellow"
-    min_confidence: 0.6
+    target_classes: ""
+    min_confidence: 0.2
 
     # 3x3 homography matrix (row-major). Update using your calibration.
     homography:
-      - 1.0
-      - 0.0
-      - 0.0
-      - 0.0
-      - 1.0
-      - 0.0
-      - 0.0
-      - 0.0
-      - 1.0
+      - 0.00018182
+      - -0.00000000
+      - 0.08181818
+      - 0.00000000
+      - 0.00028571
+      - 0.02142857
+      - 0.00000000
+      - 0.00000000
+      - 1.00000000
 
     base_frame: base_link
     group_name: arm
@@ -29,15 +29,17 @@ pick_from_detections:
     gripper_joint: grip_joint
 
     ik_service: /compute_ik
+    ik_timeout: 1.0
+    avoid_collisions: false
     arm_action: /arm_controller/follow_joint_trajectory
     gripper_action: /gripper_controller/follow_joint_trajectory
 
-    approach_z: 0.08
-    grasp_z: 0.02
-    lift_z: 0.10
+    approach_z: 0.12
+    grasp_z: 0.12
+    lift_z: 0.12
 
     # Adjust orientation to match your gripper "down" pose.
-    pick_roll: 3.14159
+    pick_roll: 0.0
     pick_pitch: 0.0
     pick_yaw: 0.0
 
@@ -47,8 +49,8 @@ pick_from_detections:
 
     move_time: 2.0
     gripper_time: 1.0
-    cooldown: 2.0
-    pick_once: false
+    cooldown: 5.0
+    pick_once: true
 
     # Optional place target (set place_x/place_y to enable).
     place_x: .nan

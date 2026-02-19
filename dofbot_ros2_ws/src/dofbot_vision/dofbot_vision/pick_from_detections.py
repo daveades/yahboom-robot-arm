@@ -50,6 +50,8 @@ class PickFromDetections(Node):
         )
         self.declare_parameter("gripper_joint", "grip_joint")
         self.declare_parameter("ik_service", "/compute_ik")
+        self.declare_parameter("ik_timeout", 0.5)
+        self.declare_parameter("avoid_collisions", True)
         self.declare_parameter("arm_action", "/arm_controller/follow_joint_trajectory")
         self.declare_parameter("gripper_action", "/gripper_controller/follow_joint_trajectory")
         self.declare_parameter("approach_z", 0.08)
@@ -79,6 +81,8 @@ class PickFromDetections(Node):
         self.arm_joints = list(self.get_parameter("arm_joints").value)
         self.gripper_joint = self.get_parameter("gripper_joint").value
         self.ik_service = self.get_parameter("ik_service").value
+        self.ik_timeout = float(self.get_parameter("ik_timeout").value)
+        self.avoid_collisions = bool(self.get_parameter("avoid_collisions").value)
         self.arm_action = self.get_parameter("arm_action").value
         self.gripper_action = self.get_parameter("gripper_action").value
         self.approach_z = float(self.get_parameter("approach_z").value)
@@ -110,7 +114,7 @@ class PickFromDetections(Node):
         self.create_subscription(String, self.detections_topic, self._detections_cb, 10)
 
         self.get_logger().info(
-            "Pick node ready. Waiting for detections on %s", self.detections_topic
+            f"Pick node ready. Waiting for detections on {self.detections_topic}"
         )
 
     def _joint_state_cb(self, msg: JointState) -> None:
@@ -221,8 +225,11 @@ class PickFromDetections(Node):
         req.ik_request.group_name = self.group_name
         req.ik_request.ik_link_name = self.ik_link
         req.ik_request.pose_stamped = pose
-        req.ik_request.avoid_collisions = True
-        req.ik_request.timeout = Duration(sec=0, nanosec=int(0.5 * 1e9))
+        req.ik_request.avoid_collisions = self.avoid_collisions
+        req.ik_request.timeout = Duration(
+            sec=int(self.ik_timeout),
+            nanosec=int((self.ik_timeout - int(self.ik_timeout)) * 1e9),
+        )
 
         if self.joint_state:
             req.ik_request.robot_state = RobotState(joint_state=self.joint_state)
@@ -233,6 +240,10 @@ class PickFromDetections(Node):
             return None
         res = future.result()
         if res.error_code.val != MoveItErrorCodes.SUCCESS:
+            self.get_logger().warn(
+                f"IK error code: {res.error_code.val} for pose x={pose.pose.position.x:.3f} "
+                f"y={pose.pose.position.y:.3f} z={pose.pose.position.z:.3f}"
+            )
             return None
 
         return self._extract_joint_positions(res.solution.joint_state, self.arm_joints)
