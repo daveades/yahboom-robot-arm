@@ -65,3 +65,21 @@ Run MoveIt Setup Assistant:
 ```bash
 scripts/run_moveit_setup.sh
 ```
+
+## Vision (PC)
+Install YOLO dependencies in a venv (PC):
+```bash
+source /opt/ros/jazzy/setup.bash
+python3 -m venv --system-site-packages ~/venvs/ros2_yolo
+source ~/venvs/ros2_yolo/bin/activate
+pip install -U pip
+pip install ultralytics
+```
+
+Run detector:
+```bash
+cd dofbot_ros2_ws
+colcon build --symlink-install --packages-select dofbot_vision
+source install/setup.bash
+ros2 launch dofbot_vision yolo.launch.py image_topic:=/image_raw model:=yolov8n.pt device:=cpu
+```
