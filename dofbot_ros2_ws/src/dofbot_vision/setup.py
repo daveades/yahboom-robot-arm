@@ -13,6 +13,7 @@ setup(
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
         (os.path.join('share', package_name, 'launch'), glob('launch/*.launch.py')),
+        (os.path.join('share', package_name, 'config'), glob('config/*.yaml')),
         ('lib/' + package_name, [package_name + '/__init__.py']),
     ],
     install_requires=['setuptools'],
@@ -24,7 +25,9 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'color_sorter = dofbot_vision.color_sorter:main'
+            'color_sorter = dofbot_vision.color_sorter:main',
+            'yolo_detector = dofbot_vision.yolo_detector:main',
+            'pick_from_detections = dofbot_vision.pick_from_detections:main',
         ],
     },
 )
