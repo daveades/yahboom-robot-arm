@@ -131,6 +131,14 @@ three controllers. Useful driver parameters (set in the launch or via
 `--ros-args -p`): `max_speed_deg_s` (default 120), `gripper_open_deg` /
 `gripper_closed_deg`, `min_delta_deg` jitter filter.
 
+For hardware bring-up testing **without** ros2_control/MoveIt (driver +
+robot_state_publisher only, so you can watch `/joint_states` and publish
+`/target_joints` by hand):
+
+```bash
+ros2 launch dofbot_bringup robot.launch.py port:=/dev/ttyUSB0 use_rviz:=false
+```
+
 ### On the PC
 
 ```bash
@@ -153,20 +161,43 @@ ros2 topic list | grep target_joints # command path to the driver exists
 
 ## 5. Vision (optional)
 
-On the Pi, start the driver + camera (`v4l2-camera` package required):
+On the Pi, start the driver + camera (`ros-humble-v4l2-camera` required):
 
 ```bash
 ros2 launch dofbot_vision vision.launch.py
 ```
 
-On the PC, YOLO detection needs a venv with ultralytics (see README), then:
+On the PC, install the YOLO dependencies once, in a venv that can still see
+the ROS Python packages:
 
 ```bash
+source /opt/ros/humble/setup.bash
+python3 -m venv --system-site-packages ~/venvs/ros2_yolo
+source ~/venvs/ros2_yolo/bin/activate
+pip install -U pip
+pip install ultralytics
+```
+
+Then run the detector (with the venv active):
+
+```bash
+cd dofbot_ros2_ws
+colcon build --symlink-install --packages-select dofbot_vision
+source install/setup.bash
 ros2 launch dofbot_vision yolo.launch.py image_topic:=/image_raw model:=yolov8n.pt device:=cpu
 ```
 
 The object-picking pipeline (`pick.launch.py`, `pick_from_detections`) is
-work in progress — see `docs/object_picking_status.md`.
+work in progress — see [object_picking_status.md](object_picking_status.md).
+
+## 6. Development notes
+
+- `dofbot_moveit_config` launch files are thin wrappers around
+  `dofbot_bringup`; prefer the `dofbot_bringup` launches for actual use.
+- If you rename or move packages, always rebuild from a clean
+  `build/ install/ log/`.
+- To regenerate the MoveIt configuration with the Setup Assistant:
+  `scripts/run_moveit_setup.sh`.
 
 ## Troubleshooting
 

@@ -1,87 +1,44 @@
 # Yahboom DOFBOT ROS 2 Workspace
 
-This repo contains the ROS 2 workspace plus helper scripts and utilities used to develop and test the Yahboom DOFBOT arm.
+ROS 2 **Humble** workspace, helper scripts, and utilities for developing and
+testing the Yahboom DOFBOT arm: MoveIt motion planning on a PC, hardware
+control on a Raspberry Pi, and a vision pipeline for object detection.
 
-**New here? Start with the [Getting Started guide](docs/getting_started.md)** — it covers the simulation demo and real-hardware bringup step by step.
+## Documentation
 
-**Layout**
+- **[Getting Started](docs/getting_started.md)** — build, simulation demo,
+  real-hardware bringup (PC + Pi), vision, and troubleshooting. Start here.
+- [Object picking status](docs/object_picking_status.md) — state of the
+  vision-driven picking pipeline (work in progress).
+
+## Repository layout
+
 - `dofbot_ros2_ws/` ROS 2 workspace (packages live in `dofbot_ros2_ws/src`)
-- `scripts/` Host-side scripts (deploy, setup helpers)
+- `scripts/` Host-side scripts (deploy to Pi, MoveIt Setup Assistant)
 - `tools/` Small utilities (e.g., checkerboard generation)
 - `experiments/` One-off test scripts for hardware bring-up
+- `docs/` Documentation
 
-**Key ROS packages**
-- `dofbot_description` URDF/xacro + meshes + RViz configs
-- `dofbot_driver` Hardware driver node
-- `dofbot_ros2_control` ros2_control hardware interface
-- `dofbot_moveit_config` MoveIt configuration (now thin wrapper launches)
-- `dofbot_bringup` System launch files (main entrypoints)
-- `dofbot_vision` Vision nodes
+## ROS packages
 
-## Quick Start
+| Package | Role |
+|---|---|
+| `dofbot_description` | URDF/xacro, meshes, RViz configs |
+| `dofbot_driver` | Serial driver node for the arm servos |
+| `dofbot_ros2_control` | ros2_control hardware interface (topic bridge to the driver) |
+| `dofbot_moveit_config` | MoveIt configuration (launch files are thin wrappers) |
+| `dofbot_bringup` | System launch files — the main entrypoints |
+| `dofbot_vision` | Camera, YOLO/ArUco detection, picking nodes |
 
-### 1) Build
-```bash
-source /opt/ros/humble/setup.bash
-cd dofbot_ros2_ws
-rm -rf build install log
-colcon build --symlink-install
-source install/setup.bash
-```
+## Quick reference
 
-### 2) Hardware bringup (Pi)
-```bash
-cd dofbot_ros2_ws
-ros2 launch dofbot_bringup robot.launch.py port:=/dev/ttyUSB0 use_rviz:=false
-```
+Everything below is covered in detail in the
+[Getting Started guide](docs/getting_started.md); this is just a reminder of
+the entrypoints.
 
-### 3) ros2_control on Pi (required for MoveIt execution)
-```bash
-cd dofbot_ros2_ws
-ros2 launch dofbot_bringup pi_control.launch.py
-```
-
-### 4) MoveIt on PC
-```bash
-cd dofbot_ros2_ws
-ros2 launch dofbot_bringup moveit_pc.launch.py
-```
-
-### 5) Simulation-only (no hardware)
-```bash
-cd dofbot_ros2_ws
-ros2 launch dofbot_moveit_config demo.launch.py
-```
-
-## Notes
-- `dofbot_moveit_config` launch files are wrappers now. Prefer `dofbot_bringup` for actual use.
-- If you rename or move packages, always rebuild from a clean `build/ install/ log/`.
-
-## Utilities
-Sync packages to the Pi:
-```bash
-scripts/sync_to_pi.sh
-```
-
-Run MoveIt Setup Assistant:
-```bash
-scripts/run_moveit_setup.sh
-```
-
-## Vision (PC)
-Install YOLO dependencies in a venv (PC):
-```bash
-source /opt/ros/humble/setup.bash
-python3 -m venv --system-site-packages ~/venvs/ros2_yolo
-source ~/venvs/ros2_yolo/bin/activate
-pip install -U pip
-pip install ultralytics
-```
-
-Run detector:
-```bash
-cd dofbot_ros2_ws
-colcon build --symlink-install --packages-select dofbot_vision
-source install/setup.bash
-ros2 launch dofbot_vision yolo.launch.py image_topic:=/image_raw model:=yolov8n.pt device:=cpu
-```
+| Task | Command |
+|---|---|
+| Simulate (no hardware) | `ros2 launch dofbot_moveit_config demo.launch.py` |
+| Arm control on the Pi | `ros2 launch dofbot_bringup pi_control.launch.py` |
+| MoveIt + RViz on the PC | `ros2 launch dofbot_bringup moveit_pc.launch.py` |
+| Sync packages to the Pi | `scripts/sync_to_pi.sh` |
