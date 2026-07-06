@@ -19,7 +19,7 @@ def generate_launch_description():
     )
     
     # 2. Start the Camera Driver
-    # Note: Requires 'ros-jazzy-v4l2-camera' installed on Pi
+    # Note: Requires 'ros-humble-v4l2-camera' installed on Pi
     camera_node = Node(
         package='v4l2_camera',
         executable='v4l2_camera_node',

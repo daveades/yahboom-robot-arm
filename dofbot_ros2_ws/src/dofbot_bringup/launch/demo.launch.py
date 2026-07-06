@@ -5,6 +5,7 @@ from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
 from ament_index_python.packages import get_package_share_directory
+from launch_ros.parameter_descriptions import ParameterValue
 from launch_ros.substitutions import FindPackageShare
 
 from moveit_configs_utils import MoveItConfigsBuilder
@@ -78,10 +79,13 @@ def generate_launch_description():
         package="controller_manager",
         executable="ros2_control_node",
         parameters=[
+            {
+                "robot_description": ParameterValue(
+                    moveit_config.robot_description["robot_description"],
+                    value_type=str,
+                )
+            },
             PathJoinSubstitution([pkg_share, "config", "ros2_controllers.yaml"]),
-        ],
-        remappings=[
-            ("/controller_manager/robot_description", "/robot_description"),
         ],
     )
     ld.add_action(ros2_control_node)

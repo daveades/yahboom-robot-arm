@@ -210,47 +210,34 @@
     - chomp
     - pilz_industrial_motion_planner
     - ompl
-    - stomp
     default_planning_pipeline: ompl
     chomp:
-      planning_plugins:
-      - chomp_interface/CHOMPPlanner
+      planning_plugin: chomp_interface/CHOMPPlanner
       enable_failure_recovery: true
-      request_adapters:
-      - default_planning_request_adapters/ResolveConstraintFrames
-      - default_planning_request_adapters/ValidateWorkspaceBounds
-      - default_planning_request_adapters/CheckStartStateBounds
-      - default_planning_request_adapters/CheckStartStateCollision
-      response_adapters:
-      - default_planning_response_adapters/AddTimeOptimalParameterization
-      - default_planning_response_adapters/ValidateSolution
-      - default_planning_response_adapters/DisplayMotionPath
+      request_adapters: >-
+        default_planner_request_adapters/AddTimeOptimalParameterization
+        default_planner_request_adapters/ResolveConstraintFrames
+        default_planner_request_adapters/FixWorkspaceBounds
+        default_planner_request_adapters/FixStartStateBounds
+        default_planner_request_adapters/FixStartStateCollision
+        default_planner_request_adapters/FixStartStatePathConstraints
+      start_state_max_bounds_error: 0.1
       ridge_factor: 0.01
     pilz_industrial_motion_planner:
-      planning_plugins:
-      - pilz_industrial_motion_planner/CommandPlanner
+      planning_plugin: pilz_industrial_motion_planner/CommandPlanner
       default_planner_config: PTP
-      request_adapters:
-      - default_planning_request_adapters/ResolveConstraintFrames
-      - default_planning_request_adapters/ValidateWorkspaceBounds
-      - default_planning_request_adapters/CheckStartStateBounds
-      - default_planning_request_adapters/CheckStartStateCollision
-      response_adapters:
-      - default_planning_response_adapters/ValidateSolution
-      - default_planning_response_adapters/DisplayMotionPath
+      request_adapters: ''
       capabilities: pilz_industrial_motion_planner/MoveGroupSequenceAction pilz_industrial_motion_planner/MoveGroupSequenceService
     ompl:
-      planning_plugins:
-      - ompl_interface/OMPLPlanner
-      request_adapters:
-      - default_planning_request_adapters/ResolveConstraintFrames
-      - default_planning_request_adapters/ValidateWorkspaceBounds
-      - default_planning_request_adapters/CheckStartStateBounds
-      - default_planning_request_adapters/CheckStartStateCollision
-      response_adapters:
-      - default_planning_response_adapters/AddTimeOptimalParameterization
-      - default_planning_response_adapters/ValidateSolution
-      - default_planning_response_adapters/DisplayMotionPath
+      planning_plugin: ompl_interface/OMPLPlanner
+      request_adapters: >-
+        default_planner_request_adapters/AddTimeOptimalParameterization
+        default_planner_request_adapters/ResolveConstraintFrames
+        default_planner_request_adapters/FixWorkspaceBounds
+        default_planner_request_adapters/FixStartStateBounds
+        default_planner_request_adapters/FixStartStateCollision
+        default_planner_request_adapters/FixStartStatePathConstraints
+      start_state_max_bounds_error: 0.1
       planner_configs:
         AnytimePathShortening:
           type: geometric::AnytimePathShortening
@@ -380,27 +367,6 @@
           sparse_delta_fraction: 0.25
           dense_delta_fraction: 0.001
           max_failures: 5000
-    stomp:
-      planning_plugins:
-      - stomp_moveit/StompPlanner
-      request_adapters:
-      - default_planning_request_adapters/ResolveConstraintFrames
-      - default_planning_request_adapters/ValidateWorkspaceBounds
-      - default_planning_request_adapters/CheckStartStateBounds
-      - default_planning_request_adapters/CheckStartStateCollision
-      response_adapters:
-      - default_planning_response_adapters/AddTimeOptimalParameterization
-      - default_planning_response_adapters/ValidateSolution
-      - default_planning_response_adapters/DisplayMotionPath
-      stomp_moveit:
-        num_timesteps: 60
-        num_iterations: 40
-        num_iterations_after_valid: 0
-        num_rollouts: 30
-        max_rollouts: 30
-        exponentiated_cost_sensitivity: 0.8
-        control_cost_weight: 0.1
-        delta_t: 0.1
     moveit_manage_controllers: true
     moveit_simple_controller_manager:
       controller_names:
@@ -430,8 +396,8 @@
     publish_robot_description: false
     publish_robot_description_semantic: false
     robot_description_planning:
-      default_velocity_scaling_factor: 0.1
-      default_acceleration_scaling_factor: 0.1
+      default_velocity_scaling_factor: 0.5
+      default_acceleration_scaling_factor: 0.5
       joint_limits:
         arm_joint1:
           has_velocity_limits: true

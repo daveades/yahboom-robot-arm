@@ -20,7 +20,7 @@ This repo contains the ROS 2 workspace plus helper scripts and utilities used to
 
 ### 1) Build
 ```bash
-source /opt/ros/jazzy/setup.bash
+source /opt/ros/humble/setup.bash
 cd dofbot_ros2_ws
 rm -rf build install log
 colcon build --symlink-install
@@ -69,7 +69,7 @@ scripts/run_moveit_setup.sh
 ## Vision (PC)
 Install YOLO dependencies in a venv (PC):
 ```bash
-source /opt/ros/jazzy/setup.bash
+source /opt/ros/humble/setup.bash
 python3 -m venv --system-site-packages ~/venvs/ros2_yolo
 source ~/venvs/ros2_yolo/bin/activate
 pip install -U pip

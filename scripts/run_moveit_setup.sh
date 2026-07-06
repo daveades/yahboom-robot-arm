@@ -6,7 +6,7 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 WS_DIR="$REPO_ROOT/dofbot_ros2_ws"
 cd "$WS_DIR"
 
-source /opt/ros/jazzy/setup.bash
+source /opt/ros/humble/setup.bash
 if [ -f "$WS_DIR/install/setup.bash" ]; then
   source "$WS_DIR/install/setup.bash"
 fi
