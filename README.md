@@ -2,6 +2,8 @@
 
 This repo contains the ROS 2 workspace plus helper scripts and utilities used to develop and test the Yahboom DOFBOT arm.
 
+**New here? Start with the [Getting Started guide](docs/getting_started.md)** — it covers the simulation demo and real-hardware bringup step by step.
+
 **Layout**
 - `dofbot_ros2_ws/` ROS 2 workspace (packages live in `dofbot_ros2_ws/src`)
 - `scripts/` Host-side scripts (deploy, setup helpers)
