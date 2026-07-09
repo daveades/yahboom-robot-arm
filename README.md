@@ -6,8 +6,11 @@ control on a Raspberry Pi, and a vision pipeline for object detection.
 
 ## Documentation
 
-- **[Getting Started](docs/getting_started.md)** — build, simulation demo,
-  real-hardware bringup (PC + Pi), vision, and troubleshooting. Start here.
+- **[Setup Guide](docs/setup_guide.md)** — get running in your own
+  environment (WSL2 + Docker, native Ubuntu, or other), from clone to a
+  working pick, including platform-specific configuration. Start here.
+- [Getting Started](docs/getting_started.md) — build, simulation demo,
+  real-hardware bringup (PC + Pi), vision, and troubleshooting.
 - [Object picking status](docs/object_picking_status.md) — state of the
   vision-driven picking pipeline (work in progress).
 

@@ -1,7 +1,15 @@
+# Private notes
+/docs/private/
+
 # ROS 2 workspace artifacts
 /dofbot_ros2_ws/build/
 /dofbot_ros2_ws/install/
 /dofbot_ros2_ws/log/
+/build/
+/install/
+/log/
+
+.bash_history
 
 # Python caches
 **/__pycache__/
