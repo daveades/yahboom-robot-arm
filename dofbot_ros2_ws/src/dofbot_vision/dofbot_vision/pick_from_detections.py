@@ -169,6 +169,11 @@ class PickFromDetections(Node):
                 return
 
             x, y = base_xy
+            self.get_logger().info(
+                f"Picking {det.get('class_name', '?')} "
+                f"(conf {float(det.get('confidence', 0.0)):.2f}): "
+                f"pixel ({center[0]:.0f}, {center[1]:.0f}) -> base ({x:.3f}, {y:.3f})"
+            )
             qx, qy, qz, qw = rpy_to_quat(self.pick_roll, self.pick_pitch, self.pick_yaw)
 
             approach_pose = self._make_pose(x, y, self.approach_z, qx, qy, qz, qw)
@@ -202,15 +207,30 @@ class PickFromDetections(Node):
     def _has_place_target(self) -> bool:
         return not (math.isnan(self.place_x) or math.isnan(self.place_y))
 
+    def _wait_future(self, future, timeout_sec: float):
+        # This runs in the pick worker thread while the node's executor spins
+        # in the main thread; block on the future instead of spinning a
+        # second executor on the same node (which corrupts the wait set).
+        event = threading.Event()
+        future.add_done_callback(lambda _: event.set())
+        if not event.wait(timeout_sec):
+            future.cancel()
+            return None
+        try:
+            return future.result()
+        except Exception as exc:  # service/action call raised
+            self.get_logger().warn(f"Future failed: {exc}")
+            return None
+
     def _wait_for_servers(self) -> None:
         if not self.ik_client.service_is_ready():
-            self.get_logger().info("Waiting for IK service %s", self.ik_service)
+            self.get_logger().info(f"Waiting for IK service {self.ik_service}")
             self.ik_client.wait_for_service(timeout_sec=5.0)
         if not self.arm_client.server_is_ready():
-            self.get_logger().info("Waiting for arm controller %s", self.arm_action)
+            self.get_logger().info(f"Waiting for arm controller {self.arm_action}")
             self.arm_client.wait_for_server(timeout_sec=5.0)
         if not self.gripper_client.server_is_ready():
-            self.get_logger().info("Waiting for gripper controller %s", self.gripper_action)
+            self.get_logger().info(f"Waiting for gripper controller {self.gripper_action}")
             self.gripper_client.wait_for_server(timeout_sec=5.0)
 
     def _move_arm_pose(self, pose: PoseStamped) -> bool:
@@ -234,11 +254,10 @@ class PickFromDetections(Node):
         if self.joint_state:
             req.ik_request.robot_state = RobotState(joint_state=self.joint_state)
 
-        future = self.ik_client.call_async(req)
-        rclpy.spin_until_future_complete(self, future, timeout_sec=2.0)
-        if future.result() is None:
+        res = self._wait_future(self.ik_client.call_async(req), timeout_sec=self.ik_timeout + 2.0)
+        if res is None:
+            self.get_logger().warn("IK service call failed or timed out.")
             return None
-        res = future.result()
         if res.error_code.val != MoveItErrorCodes.SUCCESS:
             self.get_logger().warn(
                 f"IK error code: {res.error_code.val} for pose x={pose.pose.position.x:.3f} "
@@ -291,17 +310,13 @@ class PickFromDetections(Node):
         goal: FollowJointTrajectory.Goal,
         label: str,
     ) -> bool:
-        send_future = client.send_goal_async(goal)
-        rclpy.spin_until_future_complete(self, send_future, timeout_sec=5.0)
-        goal_handle = send_future.result()
+        goal_handle = self._wait_future(client.send_goal_async(goal), timeout_sec=5.0)
         if goal_handle is None or not goal_handle.accepted:
-            self.get_logger().warn("Trajectory rejected for %s.", label)
+            self.get_logger().warn(f"Trajectory rejected for {label}.")
             return False
-        result_future = goal_handle.get_result_async()
-        rclpy.spin_until_future_complete(self, result_future, timeout_sec=10.0)
-        result = result_future.result()
+        result = self._wait_future(goal_handle.get_result_async(), timeout_sec=self.move_time + 10.0)
         if result is None:
-            self.get_logger().warn("Trajectory result missing for %s.", label)
+            self.get_logger().warn(f"Trajectory result missing for {label}.")
             return False
         return result.result.error_code == 0
 
