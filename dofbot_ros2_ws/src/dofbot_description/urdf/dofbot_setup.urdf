@@ -2,7 +2,7 @@
 <robot name="yahboom_dofbot">
     <link name="base_link">
         <visual>
-            <origin xyz="0 0 0" rpy="0 0 0" />
+            <origin xyz="0 0 0" rpy="0 0 -1.5708" />
             <geometry>
                 <mesh filename="package://dofbot_description/meshes/base_link.STL" />
             </geometry>
@@ -30,7 +30,7 @@
     </link>
     
     <joint name="arm_joint1" type="revolute">
-        <origin xyz="0 0 0.06605" rpy="-0.010805 0 1.5" />
+        <origin xyz="0 0 0.06605" rpy="-0.010805 0 0" />
         <parent link="base_link" />
         <child link="arm_link1" />
         <axis xyz="0 0 1" />
