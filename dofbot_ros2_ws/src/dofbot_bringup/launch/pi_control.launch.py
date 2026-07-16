@@ -24,6 +24,15 @@ def generate_launch_description():
     )
     port = LaunchConfiguration("port")
 
+    startup_time_arg = DeclareLaunchArgument(
+        "startup_time_ms",
+        default_value="4000",
+        description="Duration of the slow startup sync sweep in the driver",
+    )
+    startup_time_ms = ParameterValue(
+        LaunchConfiguration("startup_time_ms"), value_type=int
+    )
+
     rsp = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             PathJoinSubstitution([bringup_share, "launch", "rsp.launch.py"])
@@ -75,13 +84,14 @@ def generate_launch_description():
 
     return LaunchDescription([
         port_arg,
+        startup_time_arg,
         rsp,
         Node(
             package="dofbot_driver",
             executable="dofbot_driver",
             name="dofbot_driver",
             output="screen",
-            parameters=[{"port": port}],
+            parameters=[{"port": port, "startup_time_ms": startup_time_ms}],
         ),
         ros2_control_node,
         joint_state_broadcaster,

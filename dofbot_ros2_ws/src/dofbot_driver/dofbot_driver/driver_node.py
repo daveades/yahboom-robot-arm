@@ -35,6 +35,18 @@ class ArmUSB:
         except Exception as e:
             if self.logger: self.logger.error(f"Serial write failed: {e}")
 
+    @staticmethod
+    def _servo_pos(sid, angle):
+        if sid in [1, 6]:
+            pos = int((3100 - 900) * angle / 180 + 900)
+        elif sid in [2, 3, 4]:
+            pos = int((3100 - 900) * (180 - angle) / 180 + 900)
+        elif sid == 5:
+            pos = int((3700 - 380) * angle / 270 + 380)
+        else:
+            pos = 0
+        return max(0, min(4096, pos))
+
     def servo_write_all(self, angles, time_ms):
         """
         angles: list of 6 angles in DEGREES
@@ -43,26 +55,26 @@ class ArmUSB:
 
         values = []
         for i, angle in enumerate(angles):
-            sid = i + 1
-            pos = 0
-            if sid in [1, 6]:
-                pos = int((3100 - 900) * angle / 180 + 900)
-            elif sid in [2, 3, 4]:
-                pos = int((3100 - 900) * (180 - angle) / 180 + 900)
-            elif sid == 5:
-                pos = int((3700 - 380) * angle / 270 + 380)
-            
-            # Constrain to valid range 0-4096 roughly or just strict short
-            pos = max(0, min(4096, pos))
-            
+            pos = self._servo_pos(i + 1, angle)
             values.append((pos >> 8) & 0xFF)
             values.append(pos & 0xFF)
 
         time_h = (time_ms >> 8) & 0xFF
         time_l = time_ms & 0xFF
-        
+
         # Length = 0x11, Type = 0x1D
         data = [0x11, CMD_SERVO_WRITE6] + values + [time_h, time_l]
+        self._send_packet(data)
+
+    def servo_write(self, sid, angle, time_ms):
+        """Write a single servo (id 1..6, angle in DEGREES)."""
+        pos = self._servo_pos(sid, angle)
+        data = [
+            0x07,
+            CMD_SERVO_WRITE + sid,
+            (pos >> 8) & 0xFF, pos & 0xFF,
+            (time_ms >> 8) & 0xFF, time_ms & 0xFF,
+        ]
         self._send_packet(data)
 
 class DofbotDriver(Node):
@@ -71,13 +83,13 @@ class DofbotDriver(Node):
         
         self.declare_parameter('port', '/dev/ttyUSB0')
         self.declare_parameter('max_speed_deg_s', 120.0)
-        self.declare_parameter('min_time_ms', 50)
+        self.declare_parameter('min_time_ms', 10)
         self.declare_parameter('max_time_ms', 1000)
         self.declare_parameter('gripper_range_rad', 1.54)  # URDF grip_joint lower limit magnitude
         self.declare_parameter('gripper_open_deg', 0.0)    # Servo angle at fully open
         self.declare_parameter('gripper_closed_deg', 180.0)  # Servo angle at fully closed
         self.declare_parameter('min_delta_deg', 0.5)  # ignore tiny changes to prevent jitter
-        self.declare_parameter('startup_time_ms', 1200)  # slow initial move after controller start
+        self.declare_parameter('startup_time_ms', 4000)  # duration of the slow startup sync sweep
         self.declare_parameter('startup_moves', 1)
         port = self.get_parameter('port').value
         self.max_speed_deg_s = float(self.get_parameter('max_speed_deg_s').value)
@@ -102,7 +114,9 @@ class DofbotDriver(Node):
         self.current_angles = [90.0] * 6
         self.current_angles[5] = self.gripper_closed_deg  # gripper starts closed
         self.last_sent_angles = self.current_angles.copy()
-        self.startup_moves_remaining = self.startup_moves
+        self.last_send_time = None
+        self.startup_sync_until = None
+        self.startup_moves_remaining = 0  # superseded by the startup sync
         
         self.sub = self.create_subscription(
             JointState,
@@ -159,20 +173,63 @@ class DofbotDriver(Node):
                         driver_angle = math.degrees(pos) + 90
                     self.current_angles[i] = driver_angle
 
-        # Send to arm (ignore tiny changes to prevent jitter)
-        max_delta = max(abs(c - p) for c, p in zip(self.current_angles, self.last_sent_angles))
-        if max_delta < self.min_delta_deg:
+        # Startup sync: on the first command, deliberately sweep ALL servos
+        # to the commanded pose over startup_time_ms. The servos know their
+        # real positions, so this is a slow glide from wherever the arm
+        # physically is to the pose the stack believes in. Until it
+        # finishes, drop further writes so nothing overrides the glide.
+        now_mono = time.monotonic()
+        if self.startup_sync_until is None:
+            self.arm.servo_write_all(self.current_angles, self.startup_time_ms)
+            self.last_sent_angles = self.current_angles.copy()
+            self.last_send_time = now_mono
+            self.startup_sync_until = now_mono + self.startup_time_ms / 1000.0
+            self.get_logger().info(
+                f"Startup sync: easing arm to commanded pose over "
+                f"{self.startup_time_ms} ms"
+            )
             return
-        if self.max_speed_deg_s > 0:
-            time_ms = int((max_delta / self.max_speed_deg_s) * 1000.0)
+        if now_mono < self.startup_sync_until:
+            return
+
+        # Send ONLY the servos whose target changed. Writing all six would
+        # re-assert this driver's possibly-stale belief of the other joints
+        # (e.g. a gripper command yanking the whole arm to the assumed
+        # startup pose).
+        changed = [
+            i for i, (c, p) in enumerate(zip(self.current_angles, self.last_sent_angles))
+            if abs(c - p) >= self.min_delta_deg
+        ]
+        if not changed:
+            return
+        max_delta = max(
+            abs(self.current_angles[i] - self.last_sent_angles[i]) for i in changed
+        )
+        # Pace streamed commands by the real time since the previous packet:
+        # each packet must ask the servo to cover its delta in roughly the
+        # stream interval, or the servo runs slower than the stream, lags
+        # ever further behind, and lurches through the backlog afterwards.
+        now = time.monotonic()
+        if self.last_send_time is None:
+            elapsed_ms = float(self.max_time_ms)
         else:
-            time_ms = self.min_time_ms
-        time_ms = max(self.min_time_ms, min(self.max_time_ms, time_ms))
+            elapsed_ms = (now - self.last_send_time) * 1000.0
+        if self.max_speed_deg_s > 0:
+            speed_floor_ms = (max_delta / self.max_speed_deg_s) * 1000.0
+        else:
+            speed_floor_ms = float(self.min_time_ms)
+        time_ms = int(max(
+            self.min_time_ms,
+            speed_floor_ms,
+            min(elapsed_ms, self.max_time_ms),
+        ))
         if self.startup_moves_remaining > 0:
             time_ms = max(time_ms, self.startup_time_ms)
             self.startup_moves_remaining -= 1
-        self.arm.servo_write_all(self.current_angles, time_ms)
-        self.last_sent_angles = self.current_angles.copy()
+        for i in changed:
+            self.arm.servo_write(i + 1, self.current_angles[i], time_ms)
+            self.last_sent_angles[i] = self.current_angles[i]
+        self.last_send_time = now
 
     def publish_state(self):
         msg = JointState()
