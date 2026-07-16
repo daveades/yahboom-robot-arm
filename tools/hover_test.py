@@ -29,6 +29,7 @@ Example:
 import argparse
 import math
 import sys
+import time
 from typing import List, Optional, Tuple
 
 try:  # ROS only needed for actual motion; --check-only works without it
@@ -115,6 +116,36 @@ class HoverTest(Node):
                 return False
         return True
 
+    def _current_positions(self) -> List[float]:
+        start = [0.0] * len(self.arm_joints)
+        if self.joint_state:
+            lookup = {n: i for i, n in enumerate(self.joint_state.name)}
+            for i, n in enumerate(self.arm_joints):
+                if n in lookup:
+                    start[i] = float(self.joint_state.position[lookup[n]])
+        return start
+
+    def _eased_points(
+        self, start: List[float], target: List[float], move_time: float
+    ) -> List["JointTrajectoryPoint"]:
+        # A single-point goal makes the controller interpolate linearly:
+        # full velocity instantly at start and stop, which jerks the arm.
+        # Sample a quintic ease (zero velocity AND acceleration at both
+        # ends) into dense waypoints instead.
+        points = []
+        n_steps = max(2, int(move_time / 0.1))
+        for k in range(1, n_steps + 1):
+            t = k / n_steps
+            s = t * t * t * (10.0 - 15.0 * t + 6.0 * t * t)  # quintic ease
+            point = JointTrajectoryPoint()
+            point.positions = [a + s * (b - a) for a, b in zip(start, target)]
+            ts = t * move_time
+            point.time_from_start = Duration(
+                sec=int(ts), nanosec=int((ts - int(ts)) * 1e9)
+            )
+            points.append(point)
+        return points
+
     def set_gripper(self, position: float) -> bool:
         if not self.gripper_client.wait_for_server(timeout_sec=5.0):
             self.get_logger().warn("Gripper controller not available.")
@@ -151,67 +182,88 @@ class HoverTest(Node):
         pose.pose.orientation.w = 1.0  # ignored: position-only IK
 
         bearing = math.atan2(y, x)
+        current = self._current_positions()
 
-        # Seed IK at the target bearing with a neutral reach pose so the
-        # solver starts near the sane solution, not wherever the arm is.
-        seed = JointState()
-        seed.name = list(self.arm_joints)
-        seed.position = [bearing, 0.5, -1.0, -0.8, 0.0]
+        # Seed IK from the CURRENT elbow pose (base swapped to the new
+        # bearing) so consecutive squares get the same arm fold and the
+        # transition is a direct sweep. Fall back to a neutral reach pose
+        # (also used from upright, where the zero pose is a bad seed).
+        seeds = []
+        if any(abs(p) > 0.15 for p in current[1:4]):
+            seeds.append([bearing] + current[1:4] + [0.0])
+        seeds.append([bearing, 0.5, -1.0, -0.8, 0.0])
 
-        req = GetPositionIK.Request()
-        req.ik_request.group_name = "arm"
-        req.ik_request.ik_link_name = "arm_link5"
-        req.ik_request.pose_stamped = pose
-        req.ik_request.avoid_collisions = False
-        req.ik_request.timeout = Duration(sec=1)
-        req.ik_request.robot_state = RobotState(joint_state=seed)
+        positions = None
+        for seed_pos in seeds:
+            seed = JointState()
+            seed.name = list(self.arm_joints)
+            seed.position = seed_pos
 
-        res = self._spin_future(self.ik_client.call_async(req), timeout_sec=5.0)
-        if res is None:
-            self.get_logger().warn("IK service call failed or timed out.")
+            req = GetPositionIK.Request()
+            req.ik_request.group_name = "arm"
+            req.ik_request.ik_link_name = "arm_link5"
+            req.ik_request.pose_stamped = pose
+            req.ik_request.avoid_collisions = False
+            req.ik_request.timeout = Duration(sec=1)
+            req.ik_request.robot_state = RobotState(joint_state=seed)
+
+            res = self._spin_future(self.ik_client.call_async(req), timeout_sec=5.0)
+            if res is None:
+                self.get_logger().warn("IK service call failed or timed out.")
+                continue
+            if res.error_code.val != MoveItErrorCodes.SUCCESS:
+                self.get_logger().warn(
+                    f"IK error {res.error_code.val} for x={x:.3f} y={y:.3f} "
+                    f"z={self.args.z:.3f} (square may be out of reach)"
+                )
+                continue
+
+            lookup = {n: i for i, n in enumerate(res.solution.joint_state.name)}
+            try:
+                cand = [
+                    float(res.solution.joint_state.position[lookup[n]])
+                    for n in self.arm_joints
+                ]
+            except KeyError:
+                self.get_logger().warn("IK solution missing arm joints.")
+                continue
+
+            # Position-only IK has 2 spare DOF and can return folded/rolled
+            # poses. A sane top-down hover must swing the base toward the
+            # target and keep the wrist roll near zero.
+            j1_err = math.degrees(abs(cand[0] - bearing))
+            j5_off = math.degrees(abs(cand[4]))
+            if j1_err > 8.0 or j5_off > 20.0:
+                self.get_logger().warn(
+                    f"Rejecting contorted IK solution: base off-bearing by "
+                    f"{j1_err:.0f}deg, wrist roll {j5_off:.0f}deg."
+                )
+                continue
+            positions = cand
+            break
+
+        if positions is None:
+            self.get_logger().warn("No acceptable IK solution. Not moving.")
             return False
-        if res.error_code.val != MoveItErrorCodes.SUCCESS:
-            self.get_logger().warn(
-                f"IK error {res.error_code.val} for x={x:.3f} y={y:.3f} "
-                f"z={self.args.z:.3f} (square may be out of reach)"
-            )
-            return False
 
-        lookup = {n: i for i, n in enumerate(res.solution.joint_state.name)}
-        try:
-            positions = [
-                float(res.solution.joint_state.position[lookup[n]])
-                for n in self.arm_joints
-            ]
-        except KeyError:
-            self.get_logger().warn("IK solution missing arm joints.")
-            return False
-
-        # Position-only IK has 2 spare DOF and can return folded/rolled
-        # poses. A sane top-down hover must swing the base toward the
-        # target and keep the wrist roll near zero.
-        j1_err = math.degrees(abs(positions[0] - bearing))
-        j5_off = math.degrees(abs(positions[4]))
-        if j1_err > 8.0 or j5_off > 20.0:
-            self.get_logger().warn(
-                f"Rejecting contorted IK solution: base off-bearing by "
-                f"{j1_err:.0f}deg, wrist roll {j5_off:.0f}deg. Not moving."
-            )
-            return False
+        start = current
+        # Cap the peak joint speed: long swings take proportionally longer
+        # (quintic ease peaks at 1.875x the average velocity).
+        biggest = max(abs(b - a) for a, b in zip(start, positions))
+        move_time = max(
+            self.args.move_time, 1.875 * biggest / self.args.max_speed
+        )
 
         goal = FollowJointTrajectory.Goal()
         goal.trajectory.joint_names = self.arm_joints
-        point = JointTrajectoryPoint()
-        point.positions = positions
-        point.time_from_start = Duration(sec=int(self.args.move_time))
-        goal.trajectory.points = [point]
+        goal.trajectory.points = self._eased_points(start, positions, move_time)
 
         handle = self._spin_future(self.arm_client.send_goal_async(goal), timeout_sec=5.0)
         if handle is None or not handle.accepted:
             self.get_logger().warn("Trajectory rejected.")
             return False
         result = self._spin_future(
-            handle.get_result_async(), timeout_sec=self.args.move_time + 10.0
+            handle.get_result_async(), timeout_sec=move_time + 10.0
         )
         if result is None:
             self.get_logger().warn("Trajectory result missing.")
@@ -232,8 +284,11 @@ def main() -> None:
                         help="flip rank direction to the other side")
     parser.add_argument("--z", type=float, default=0.12,
                         help="hover height in meters (default 0.12)")
-    parser.add_argument("--move-time", type=float, default=2.0,
-                        help="seconds per move (default 2.0)")
+    parser.add_argument("--move-time", type=float, default=3.0,
+                        help="minimum seconds per move (default 3.0)")
+    parser.add_argument("--max-speed", type=float, default=0.5,
+                        help="peak joint speed in rad/s; long swings are "
+                             "slowed to respect this (default 0.5)")
     parser.add_argument("--gripper", type=float, default=None, metavar="POS",
                         help="close gripper to this grip_joint position first "
                              "(e.g. -1.0) so the tips act as a pointer")
@@ -281,6 +336,13 @@ def main() -> None:
     try:
         if not node.wait_ready():
             sys.exit(1)
+        # If the stack was just launched, the driver spends ~3s pulling the
+        # arm to its assumed-upright pose. Moving during that correction
+        # makes commands and reality fight; wait it out.
+        print("Settling 4s (lets any driver startup correction finish) ...")
+        settle_end = time.time() + 4.0
+        while time.time() < settle_end:
+            rclpy.spin_once(node, timeout_sec=0.2)
         if args.gripper is not None:
             print(f"Setting gripper to {args.gripper} ...")
             node.set_gripper(args.gripper)
