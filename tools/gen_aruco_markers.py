@@ -73,6 +73,16 @@ def main() -> int:
     cv2.imwrite(args.out, page)
     print(f"Wrote {args.out} ({args.size_mm:g} mm markers, DICT_4X4_50, "
           f"ids 0-3).")
+
+    # PDF embeds the physical page size, so printers can't rescale it.
+    try:
+        from PIL import Image
+        pdf_path = os.path.splitext(args.out)[0] + ".pdf"
+        Image.fromarray(page).save(pdf_path, resolution=DPI)
+        print(f"Wrote {pdf_path} (prefer this for printing - exact A4 size).")
+    except ImportError:
+        print("Pillow not installed, skipped PDF (pip install pillow).")
+
     print("Print at 100% / 'Actual size', then measure a marker with a "
           "ruler to confirm.")
     return 0
