@@ -16,9 +16,12 @@ Usage (inside the container):
     python3 tools/gen_aruco_markers.py --out my_sheet.png
 """
 import argparse
+import os
 
 import cv2
 import numpy as np
+
+REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 DPI = 300
 MM_PER_INCH = 25.4
@@ -34,7 +37,9 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--size-mm", type=float, default=30.0,
                     help="marker side length in mm (default 30)")
-    ap.add_argument("--out", default="aruco_markers.png")
+    ap.add_argument("--out", default=os.path.join(REPO_ROOT, "aruco_markers.png"),
+                    help="output path (default: repo root, so it is visible "
+                         "on the host through the bind mount)")
     args = ap.parse_args()
 
     dictionary = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_50)
