@@ -31,7 +31,7 @@ if (-not (Get-Command ffmpeg -ErrorAction SilentlyContinue)) {
 if ($ListDevices) {
     Write-Host "Video devices ffmpeg can see:" -ForegroundColor Cyan
     ffmpeg -hide_banner -list_devices true -f dshow -i dummy 2>&1 |
-        Select-String "dshow"
+        Select-String '\((video|audio)\)'
     exit 0
 }
 
