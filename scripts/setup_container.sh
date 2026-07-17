@@ -32,7 +32,9 @@ grep -q 'alias ros-build=' /root/.bashrc \
     || echo "alias ros-build='colcon build --symlink-install'" >> /root/.bashrc
 
 echo "==> 3/3 Clean rebuild of dofbot_ros2_ws"
+set +u  # ROS setup files reference unset vars (AMENT_TRACE_SETUP_FILES)
 source /opt/ros/humble/setup.bash
+set -u
 cd "$WS/dofbot_ros2_ws"
 rm -rf build install log
 colcon build --symlink-install

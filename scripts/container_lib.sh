@@ -7,7 +7,10 @@ if [ ! -f /.dockerenv ]; then
 fi
 
 WS=/root/yahboom-robot-arm
+# ROS setup files reference unset vars, so relax -u while sourcing.
+# Single workspace: dofbot_ros2_ws (the old top-level tree is gone —
+# rebuild with ros-build / setup_container.sh if setup.bash is missing).
+set +u
 source /opt/ros/humble/setup.bash
-# single workspace: dofbot_ros2_ws (the old top-level build/install tree
-# is gone — rebuild with ros-build if this file is missing)
 source "$WS/dofbot_ros2_ws/install/setup.bash"
+set -u
