@@ -3,9 +3,8 @@
 # and publishes /image_raw. All output streams to this terminal.
 #
 # Prerequisite — on WINDOWS (PowerShell), start the streamer first:
-#   while ($true) { ffmpeg -f dshow -video_size 640x480 -framerate 30 `
-#     -i video="USB Camera" -c:v mjpeg -q:v 6 -f mpjpeg -listen 1 `
-#     http://0.0.0.0:8090/cam.mjpg; Start-Sleep 1 }
+#   scripts\windows\stream_camera.ps1
+# (use -ListDevices to find the camera name if "USB Camera" is wrong)
 #
 # Usage (inside the container):
 #   scripts/camera.sh

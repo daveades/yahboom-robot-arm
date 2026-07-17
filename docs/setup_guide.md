@@ -248,12 +248,13 @@ network bridge:
 
 1. Windows: `winget install ffmpeg`, then find the camera name:
    `ffmpeg -list_devices true -f dshow -i dummy` (e.g. `"USB Camera"`).
-2. Windows: start the streamer (leave running; the loop survives disconnects):
+2. Windows: start the streamer (leave running; it restarts ffmpeg after
+   client disconnects):
 
    ```powershell
-   while ($true) { ffmpeg -f dshow -video_size 640x480 -framerate 30 `
-     -i video="USB Camera" -c:v mjpeg -q:v 6 -f mpjpeg -listen 1 `
-     http://0.0.0.0:8090/cam.mjpg; Start-Sleep 1 }
+   # from the repo (reachable at \\wsl$\...\yahboom-robot-arm):
+   .\scripts\windows\stream_camera.ps1              # -ListDevices to find the name
+   .\scripts\windows\stream_camera.ps1 -Camera "HD Webcam"   # if not "USB Camera"
    ```
 
    Click **Allow** on the firewall prompt.
