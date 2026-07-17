@@ -32,6 +32,8 @@ import sys
 import time
 from typing import List, Optional, Tuple
 
+from board_config import resolve as resolve_board
+
 try:  # ROS only needed for actual motion; --check-only works without it
     import rclpy
     from rclpy.action import ActionClient
@@ -273,15 +275,19 @@ class HoverTest(Node):
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--a1", nargs=2, type=float, required=True,
+    parser.add_argument("--a1", nargs=2, type=float, default=None,
                         metavar=("X", "Y"),
-                        help="center of square a1 in base frame, meters")
-    parser.add_argument("--square", type=float, required=True,
-                        help="square size in meters, e.g. 0.025")
-    parser.add_argument("--yaw", type=float, default=0.0,
+                        help="center of square a1 in base frame, meters "
+                             "(default: config/board.yaml)")
+    parser.add_argument("--square", type=float, default=None,
+                        help="square size in meters (default: config/board.yaml)")
+    parser.add_argument("--yaw", type=float, default=None,
                         help="file direction a->h in degrees (0=+x, 90=+y)")
-    parser.add_argument("--mirror", action="store_true",
+    parser.add_argument("--mirror", action=argparse.BooleanOptionalAction,
+                        default=None,
                         help="flip rank direction to the other side")
+    parser.add_argument("--board", default=None,
+                        help="board model yaml (default: config/board.yaml)")
     parser.add_argument("--z", type=float, default=0.12,
                         help="hover height in meters (default 0.12)")
     parser.add_argument("--move-time", type=float, default=3.0,
@@ -299,13 +305,13 @@ def main() -> None:
     args = parser.parse_args()
 
     squares = args.squares or DEFAULT_SQUARES
-    a1 = (args.a1[0], args.a1[1])
+    a1, square, yaw, mirror = resolve_board(args)
 
-    print(f"\nBoard: a1=({a1[0]:.3f}, {a1[1]:.3f})  square={args.square*1000:.0f}mm  "
-          f"yaw={args.yaw:.0f}deg  mirror={args.mirror}  hover z={args.z:.3f}\n")
+    print(f"\nBoard: a1=({a1[0]:.3f}, {a1[1]:.3f})  square={square*1000:.0f}mm  "
+          f"yaw={yaw:.0f}deg  mirror={mirror}  hover z={args.z:.3f}\n")
     targets = []
     for sq in squares:
-        x, y = square_to_xy(sq, a1, args.square, args.yaw, args.mirror)
+        x, y = square_to_xy(sq, a1, square, yaw, mirror)
         dist = math.hypot(x, y)
         ang = math.degrees(math.atan2(y, x))
         note = ""

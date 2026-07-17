@@ -12,7 +12,7 @@ Requirements:
   * Board EMPTY (no pieces) and evenly lit for corner detection.
 
 Frame source: --image FILE, or a live grab from --topic (default
-/image_raw, needs the ffmpeg bridge + stream_camera_node on WSL2).
+/image_raw, needs the ffmpeg bridge + `ros2 run dofbot_vision stream_camera` on WSL2).
 
 Orientation check: the tool writes an annotated image (--annotate) with
 a1/h1/a8/h8 labelled. If the labels sit on the wrong corners, re-run with
@@ -31,6 +31,8 @@ import sys
 
 import cv2
 import numpy as np
+
+from board_config import resolve as resolve_board
 
 PATTERN = (7, 7)  # inner corners of an 8x8 board
 
@@ -105,10 +107,14 @@ def corner_indices(i: int, j: int, rotate: int):
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--a1", nargs=2, type=float, required=True, metavar=("X", "Y"))
-    parser.add_argument("--square", type=float, required=True)
-    parser.add_argument("--yaw", type=float, default=0.0)
-    parser.add_argument("--mirror", action="store_true")
+    parser.add_argument("--a1", nargs=2, type=float, default=None, metavar=("X", "Y"),
+                        help="center of a1, meters (default: config/board.yaml)")
+    parser.add_argument("--square", type=float, default=None,
+                        help="square size, meters (default: config/board.yaml)")
+    parser.add_argument("--yaw", type=float, default=None)
+    parser.add_argument("--mirror", action=argparse.BooleanOptionalAction, default=None)
+    parser.add_argument("--board", default=None,
+                        help="board model yaml (default: config/board.yaml)")
     parser.add_argument("--rotate", type=int, default=0, choices=[0, 90, 180, 270],
                         help="fix pattern orientation if labels are wrong")
     parser.add_argument("--image", help="use an image file instead of the live topic")
@@ -144,13 +150,13 @@ def main() -> None:
     )
     pts = corners.reshape(-1, 2)  # row-major (PATTERN[1] rows x PATTERN[0] cols)
 
-    a1 = (args.a1[0], args.a1[1])
+    a1, square, yaw, mirror = resolve_board(args)
     img_pts, base_pts = [], []
     for j in range(PATTERN[1]):
         for i in range(PATTERN[0]):
             bi, bj = corner_indices(i, j, args.rotate)
-            bx, by = indices_to_xy(bi + 0.5, bj + 0.5, a1, args.square,
-                                   args.yaw, args.mirror)
+            bx, by = indices_to_xy(bi + 0.5, bj + 0.5, a1, square,
+                                   yaw, mirror)
             img_pts.append(pts[j * PATTERN[0] + i])
             base_pts.append((bx, by))
     img_pts = np.array(img_pts, dtype=np.float64)
@@ -177,7 +183,7 @@ def main() -> None:
     out = frame.copy()
     cv2.drawChessboardCorners(out, PATTERN, corners, found)
     for sq in ["a1", "h1", "a8", "h8", "d4"]:
-        bx, by = square_center_xy(sq, a1, args.square, args.yaw, args.mirror)
+        bx, by = square_center_xy(sq, a1, square, yaw, mirror)
         p = Hinv @ np.array([bx, by, 1.0])
         u, v = int(p[0] / p[2]), int(p[1] / p[2])
         cv2.circle(out, (u, v), 6, (0, 0, 255), -1)

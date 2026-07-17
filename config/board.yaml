@@ -1,0 +1,7 @@
+# Chess board model in the robot base frame — the single source of truth
+# read by tools/hover_test.py, tools/calibrate_camera.py (CLI flags
+# override). Re-measure whenever the board or the robot moves.
+a1: [0.085, 0.155]   # center of square a1, meters (x forward, y left)
+square: 0.04375      # square size, meters (35 cm board / 8)
+yaw_deg: -90.0       # file direction a->h: 0 = +x (away), 90 = +y (left)
+mirror: false        # flip rank direction if hovers land mirrored
