@@ -163,7 +163,13 @@ class ArmClient(Node):
         seeds.append([bearing, 0.5, -1.0, -0.8, 0.0])
 
         # The solver is randomized: a solvable pose can fail one attempt,
-        # so run the seed list `attempts` times before giving up.
+        # so run the seed list `attempts` times before giving up. Solutions
+        # inside the sanity limits still differ by several degrees of base
+        # bearing and wrist roll — and the fingertips hang well below the
+        # wrist frame the IK positions, so every degree walks them sideways
+        # on the board. Score all candidates and keep the straightest.
+        best: Optional[List[float]] = None
+        best_score = math.inf
         for seed_pos in seeds * max(1, attempts):
             seed = JointState()
             seed.name = list(ARM_JOINTS)
@@ -209,17 +215,20 @@ class ArmClient(Node):
                     f"{j1_err:.0f}deg, wrist roll {j5_off:.0f}deg."
                 )
                 continue
-            if max_tilt_deg is not None:
-                pitch = math.degrees(sum(cand[1:4]))
-                tilt = abs(180.0 - abs(pitch))
-                if tilt > max_tilt_deg:
-                    self.get_logger().warn(
-                        f"Rejecting IK solution: gripper tilted {tilt:.0f}deg "
-                        f"from vertical (max {max_tilt_deg:.0f}deg)."
-                    )
-                    continue
-            return cand
-        return None
+            pitch = math.degrees(sum(cand[1:4]))
+            tilt = abs(180.0 - abs(pitch))
+            if max_tilt_deg is not None and tilt > max_tilt_deg:
+                self.get_logger().warn(
+                    f"Rejecting IK solution: gripper tilted {tilt:.0f}deg "
+                    f"from vertical (max {max_tilt_deg:.0f}deg)."
+                )
+                continue
+            score = 2.0 * j1_err + j5_off + 0.1 * tilt
+            if j1_err <= 1.0 and j5_off <= 2.0:
+                return cand  # already straight; skip the remaining attempts
+            if score < best_score:
+                best, best_score = cand, score
+        return best
 
     def move_joints(self, target: List[float],
                     move_time: Optional[float] = None) -> bool:
