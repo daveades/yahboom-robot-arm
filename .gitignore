@@ -34,3 +34,4 @@
 
 # stray auto-downloads anywhere in the tree
 yolov8n.pt
+/aruco_markers.png
