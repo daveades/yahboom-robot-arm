@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import rclpy
-from rclpy.action import ActionServer, CancelResponse
+from rclpy.action import ActionServer, CancelResponse, GoalResponse
 from rclpy.callback_groups import ReentrantCallbackGroup
 from rclpy.executors import MultiThreadedExecutor
 from rclpy.node import Node
@@ -176,6 +176,7 @@ class DofbotDriver(Node):
             self, FollowJointTrajectory,
             'arm_controller/follow_joint_trajectory',
             execute_callback=self.execute_arm,
+            goal_callback=self._goal_cb,
             cancel_callback=self._cancel_cb,
             callback_group=ReentrantCallbackGroup(),
         )
@@ -183,6 +184,7 @@ class DofbotDriver(Node):
             self, FollowJointTrajectory,
             'gripper_controller/follow_joint_trajectory',
             execute_callback=self.execute_gripper,
+            goal_callback=self._goal_cb,
             cancel_callback=self._cancel_cb,
             callback_group=ReentrantCallbackGroup(),
         )
@@ -214,6 +216,18 @@ class DofbotDriver(Node):
         return math.degrees(pos) + 90.0
 
     # ---------- trajectory execution ----------
+
+    def _goal_cb(self, _goal_request):
+        # One motion at a time: a goal arriving mid-execution is never a
+        # legitimate command for a single arm - it is a duplicate sender
+        # (e.g. a zombie move_group) or a race, and queueing it would
+        # physically replay stale waypoints when the current goal ends.
+        if self.motion_lock.locked():
+            self.get_logger().warn(
+                "Rejecting trajectory goal: another motion is executing "
+                "(duplicate sender? check for multiple move_group nodes)")
+            return GoalResponse.REJECT
+        return GoalResponse.ACCEPT
 
     def _cancel_cb(self, _goal_handle):
         return CancelResponse.ACCEPT
