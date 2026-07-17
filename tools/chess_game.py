@@ -284,8 +284,10 @@ def main() -> int:
                         help="transit height while holding a piece (default "
                              "0.16; auto-lowered toward hover-z for squares "
                              "that can't reach it)")
-    parser.add_argument("--grip-open", type=float, default=0.0,
-                        help="grip_joint position for open (default 0.0)")
+    parser.add_argument("--grip-open", type=float, default=-0.9,
+                        help="grip_joint position for open (default -0.9: "
+                             "just wider than a piece base - full open, 0.0, "
+                             "clips neighboring pieces on crowded squares)")
     parser.add_argument("--grip-closed", type=float, default=-1.42,
                         help="grip_joint position for closed (default -1.42, "
                              "calibrated on the demo pieces)")
