@@ -44,6 +44,10 @@ class ArmClient(Node):
         # If squares drift radially as the gripper descends, this is the
         # knob: drift outward when lowering -> increase, inward -> decrease.
         self.tool_len = 0.145
+        # Don't approach dead-vertical: a slight slant lets the claw come
+        # in across the square and wrap the piece instead of poking its
+        # top. 10 deg = the gripper meets the board at ~80 deg.
+        self.min_tilt_deg = 10.0
         self.joint_state: Optional[JointState] = None
         self.arm_client = ActionClient(
             self, FollowJointTrajectory, "/arm_controller/follow_joint_trajectory"
@@ -169,7 +173,8 @@ class ArmClient(Node):
         def direction(c: float):
             return -math.sin(c), math.cos(c)
 
-        for half_deg in range(int(max_tilt * 2) + 1):
+        start_tilt = min(self.min_tilt_deg, max_tilt)
+        for half_deg in range(int(start_tilt * 2), int(max_tilt * 2) + 1):
             for lean in (1.0, -1.0):    # away from / toward the base
                 t = lean * math.radians(half_deg * 0.5)
                 # Wrist (joint4) sits tool_len back from the grasp point
