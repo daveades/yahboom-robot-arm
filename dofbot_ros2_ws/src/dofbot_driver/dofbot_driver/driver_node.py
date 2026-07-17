@@ -286,10 +286,6 @@ class DofbotDriver(Node):
                 self.get_logger().info(
                     f"Startup sync: easing arm to trajectory start over {self.startup_time_ms} ms")
                 self.arm.servo_write_all(start_angles, self.startup_time_ms)
-                # The all-six command silently ignores servo 6 (hw-tested
-                # 2026-07-17: the claw only responds to its single-servo
-                # write), so ground the gripper belief separately.
-                self.arm.servo_write(6, start_angles[5], self.startup_time_ms)
                 self.current_angles = start_angles.copy()
                 self.last_sent_angles = start_angles.copy()
                 time.sleep(self.startup_time_ms / 1000.0)
@@ -322,10 +318,6 @@ class DofbotDriver(Node):
                 # Beliefs for untouched joints are grounded by the startup
                 # sync, so re-asserting them here is safe.
                 self.arm.servo_write_all(angles, dt_ms)
-                if abs(angles[5] - self.last_sent_angles[5]) > 1e-6:
-                    # Firmware quirk: the all-six command ignores servo 6,
-                    # so the claw needs its own single-servo write.
-                    self.arm.servo_write(6, angles[5], dt_ms)
                 self.last_sent_angles = angles.copy()
                 self.current_angles = angles
                 prev_t = t
