@@ -60,6 +60,7 @@ class BoardMotion:
         self.hover_z = args.hover_z
         self.grasp_z = args.grasp_z
         self.carry_z = args.carry_z
+        self.approach_dz = 0.035   # tilt-locked descent starts here
         self.max_tilt = args.max_tilt
         self.grip_open = args.grip_open
         self.grip_closed = args.grip_closed
@@ -94,19 +95,43 @@ class BoardMotion:
             z -= 0.01
         return self.hover_z
 
+    def _column_tilt(self, x: float, y: float, z: float):
+        """Signed gripper tilt of the free solution at (x, y, z).
+
+        The required tilt changes with height at longer reach, so a
+        plain descend re-pitches the claw mid-drop and its fingers sweep
+        an arc around the piece (rank-4 picks were flaky). Locking the
+        descent to the approach pose's tilt makes it a straight column.
+        """
+        sol = self.client.solve_ik(x, y, z, max_tilt_deg=self.max_tilt)
+        if sol is None:
+            return None
+        return math.degrees(math.pi + sum(sol[1:4]))
+
     def _transfer(self, from_xy: tuple, to_xy: tuple, what: str) -> bool:
         """Pick at from_xy, place at to_xy, traversing at carry height."""
         fx, fy = from_xy
         tx, ty = to_xy
         cz = self._carry_height(from_xy, to_xy)
+        az = self.grasp_z + self.approach_dz   # just above the piece tops
+        ft = self._column_tilt(fx, fy, az)     # locked pick-column tilt
+        tt = self._column_tilt(tx, ty, az)     # locked place-column tilt
         steps = [
             ("open gripper", lambda: self.client.set_gripper(self.grip_open)),
             ("hover source", lambda: self.client.move_to(fx, fy, self.hover_z)),
-            ("descend", lambda: self.client.move_to(fx, fy, self.grasp_z)),
+            ("approach", lambda: self.client.move_to(fx, fy, az,
+                                                     exact_tilt_deg=ft)),
+            ("descend", lambda: self.client.move_to(fx, fy, self.grasp_z,
+                                                    exact_tilt_deg=ft)),
             ("grip", lambda: self.client.set_gripper(self.grip_closed)),
+            ("lift", lambda: self.client.move_to(fx, fy, az,
+                                                 exact_tilt_deg=ft)),
             ("lift high", lambda: self.client.move_to(fx, fy, cz)),
             ("carry", lambda: self.client.move_to(tx, ty, cz)),
-            ("lower", lambda: self.client.move_to(tx, ty, self.grasp_z)),
+            ("approach target", lambda: self.client.move_to(tx, ty, az,
+                                                            exact_tilt_deg=tt)),
+            ("lower", lambda: self.client.move_to(tx, ty, self.grasp_z,
+                                                  exact_tilt_deg=tt)),
             ("release", lambda: self.client.set_gripper(self.grip_open)),
             ("retreat", lambda: self.client.move_to(tx, ty, self.hover_z)),
         ]
@@ -284,9 +309,9 @@ def main() -> int:
                         help="transit height while holding a piece (default "
                              "0.16; auto-lowered toward hover-z for squares "
                              "that can't reach it)")
-    parser.add_argument("--grip-open", type=float, default=-0.9,
-                        help="grip_joint position for open (default -0.9: "
-                             "just wider than a piece base - full open, 0.0, "
+    parser.add_argument("--grip-open", type=float, default=-1.1,
+                        help="grip_joint position for open (default -1.1: "
+                             "just wider than a piece base - anything wider "
                              "clips neighboring pieces on crowded squares)")
     parser.add_argument("--grip-closed", type=float, default=-1.42,
                         help="grip_joint position for closed (default -1.42, "

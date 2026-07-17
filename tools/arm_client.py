@@ -150,8 +150,14 @@ class ArmClient(Node):
 
     def solve_ik(self, x: float, y: float, z: float,
                  max_tilt_deg: Optional[float] = None,
-                 attempts: int = 2) -> Optional[List[float]]:
+                 attempts: int = 2,
+                 exact_tilt_deg: Optional[float] = None) -> Optional[List[float]]:
         """Closed-form IK for the GRASP POINT (between the fingertips).
+
+        exact_tilt_deg (signed, + = leaning away from the base) pins the
+        gripper pitch instead of scanning: consecutive solves at the same
+        (x, y) then descend in a straight tilt-locked column, so the claw
+        never re-pitches around a piece it is about to grab.
 
         Deterministic replacement for MoveIt's randomized position-only
         IK, which (a) positioned the wrist frame rather than the
@@ -174,39 +180,42 @@ class ArmClient(Node):
         def direction(c: float):
             return -math.sin(c), math.cos(c)
 
-        # Prefer tilts of at least min_tilt_deg (slanted approach), but
-        # fall back toward vertical rather than fail: the close rank-1
-        # squares can only be grasped near-vertical.
-        start = int(min(self.min_tilt_deg, max_tilt) * 2)
-        scan = list(range(start, int(max_tilt * 2) + 1))
-        scan += list(range(start - 1, -1, -1))
-        for half_deg in scan:
-            for lean in (1.0, -1.0):    # away from / toward the base
-                t = lean * math.radians(half_deg * 0.5)
-                # Wrist (joint4) sits tool_len back from the grasp point
-                # along the gripper axis.
-                wr = rho - self.tool_len * math.sin(t)
-                wz = zeta + self.tool_len * math.cos(t)
-                reach = math.hypot(wr, wz)
-                if reach < 1e-6 or reach > self.L2 + self.L3:
+        if exact_tilt_deg is not None:
+            tilts = [math.radians(exact_tilt_deg)]
+        else:
+            # Prefer tilts of at least min_tilt_deg (slanted approach),
+            # but fall back toward vertical rather than fail: the close
+            # rank-1 squares can only be grasped near-vertical.
+            start = int(min(self.min_tilt_deg, max_tilt) * 2)
+            scan = list(range(start, int(max_tilt * 2) + 1))
+            scan += list(range(start - 1, -1, -1))
+            tilts = [lean * math.radians(h * 0.5)
+                     for h in scan for lean in (1.0, -1.0)]
+        for t in tilts:
+            # Wrist (joint4) sits tool_len back from the grasp point
+            # along the gripper axis.
+            wr = rho - self.tool_len * math.sin(t)
+            wz = zeta + self.tool_len * math.cos(t)
+            reach = math.hypot(wr, wz)
+            if reach < 1e-6 or reach > self.L2 + self.L3:
+                continue
+            # Isoceles triangle shoulder->elbow->wrist (L2 == L3).
+            cum_wrist = math.atan2(-wr, wz)
+            spread = math.acos(min(1.0, reach / (2.0 * self.L2)))
+            pitch = -math.pi + t    # required j2+j3+j4
+            best = None
+            for elbow in (1.0, -1.0):
+                j2 = cum_wrist + elbow * spread
+                j3 = -2.0 * elbow * spread
+                j4 = pitch - j2 - j3
+                j4 -= 2.0 * math.pi * round(j4 / (2.0 * math.pi))
+                if max(abs(j2), abs(j3), abs(j4)) > self.JOINT_LIMIT + 1e-9:
                     continue
-                # Isoceles triangle shoulder->elbow->wrist (L2 == L3).
-                cum_wrist = math.atan2(-wr, wz)
-                spread = math.acos(min(1.0, reach / (2.0 * self.L2)))
-                pitch = -math.pi + t    # required j2+j3+j4
-                best = None
-                for elbow in (1.0, -1.0):
-                    j2 = cum_wrist + elbow * spread
-                    j3 = -2.0 * elbow * spread
-                    j4 = pitch - j2 - j3
-                    j4 -= 2.0 * math.pi * round(j4 / (2.0 * math.pi))
-                    if max(abs(j2), abs(j3), abs(j4)) > self.JOINT_LIMIT + 1e-9:
-                        continue
-                    elbow_height = self.L2 * math.cos(j2)
-                    if best is None or elbow_height > best[0]:
-                        best = (elbow_height, [bearing, j2, j3, j4, 0.0])
-                if best is not None:
-                    return best[1]
+                elbow_height = self.L2 * math.cos(j2)
+                if best is None or elbow_height > best[0]:
+                    best = (elbow_height, [bearing, j2, j3, j4, 0.0])
+            if best is not None:
+                return best[1]
         return None
 
     def move_joints(self, target: List[float],
@@ -235,8 +244,15 @@ class ArmClient(Node):
             return False
         return result.result.error_code == 0
 
-    def move_to(self, x: float, y: float, z: float) -> bool:
-        positions = self.solve_ik(x, y, z)
+    def move_to(self, x: float, y: float, z: float,
+                exact_tilt_deg: Optional[float] = None) -> bool:
+        positions = None
+        if exact_tilt_deg is not None:
+            positions = self.solve_ik(x, y, z, exact_tilt_deg=exact_tilt_deg)
+        if positions is None:
+            # free-tilt solve: the primary path, and the fallback when
+            # the requested locked tilt isn't feasible at this height
+            positions = self.solve_ik(x, y, z)
         if positions is None:
             self.get_logger().warn("No acceptable IK solution. Not moving.")
             return False
