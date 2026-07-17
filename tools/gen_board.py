@@ -39,6 +39,16 @@ def mm_to_px(v: float) -> int:
     return round(v / MM_PER_INCH * DPI)
 
 
+def add_border(canvas: np.ndarray, border_mm: float) -> np.ndarray:
+    """Blank margin around the content with a guide line, for taping down."""
+    b = mm_to_px(border_mm)
+    out = np.full((canvas.shape[0] + 2 * b, canvas.shape[1] + 2 * b), 255,
+                  np.uint8)
+    out[b:b + canvas.shape[0], b:b + canvas.shape[1]] = canvas
+    cv2.rectangle(out, (2, 2), (out.shape[1] - 3, out.shape[0] - 3), 120, 2)
+    return out
+
+
 def build_canvas(square_mm: float, marker_mm: float, quiet_mm: float):
     """Full board + markers as one image; returns (canvas, seam_y_px)."""
     pad = 4.0
@@ -150,6 +160,9 @@ def main() -> int:
                     help="white quiet zone around each marker (default 5)")
     ap.add_argument("--paper", choices=["a4", "a3"], default="a4",
                     help="a4 = two landscape sheets, a3 = one sheet (default a4)")
+    ap.add_argument("--border-mm", type=float, default=0.0,
+                    help="blank taping margin around the content with a "
+                         "guide line (default 0 = none)")
     ap.add_argument("--out", default=os.path.join(REPO_ROOT, "board"),
                     help="output basename (default: <repo>/board)")
     args = ap.parse_args()
@@ -157,6 +170,8 @@ def main() -> int:
     canvas, seam_y, offsets = build_canvas(args.square_mm, args.marker_mm,
                                            args.quiet_mm)
     if args.paper == "a3":
+        if args.border_mm > 0:
+            canvas = add_border(canvas, args.border_mm)
         pages = [paste_on_page(canvas, "a3")]
     else:
         top, bottom = canvas[:seam_y, :], canvas[seam_y:, :]
