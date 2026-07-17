@@ -29,8 +29,8 @@ def main() -> int:
     add_board_args(parser)
     parser.add_argument("--hover-z", type=float, default=0.10,
                         help="travel height in meters (default 0.10)")
-    parser.add_argument("--grasp-z", type=float, default=0.045,
-                        help="grasp height in meters (default 0.045)")
+    parser.add_argument("--grasp-z", type=float, default=0.053,
+                        help="grasp height in meters (default 0.053)")
     parser.add_argument("--max-tilt", type=float, default=35.0,
                         help="max gripper tilt from vertical in degrees "
                              "(default 35; pass 999 to disable)")

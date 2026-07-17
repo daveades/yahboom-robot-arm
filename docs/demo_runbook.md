@@ -100,7 +100,7 @@ Set up all 32 pieces (robot = White on the near ranks), then:
 python3 tools/chess_game.py --skill 3
 ```
 
-The calibrated numbers are the defaults (hover 0.10, grasp 0.045,
+The calibrated numbers are the defaults (hover 0.10, grasp 0.053,
 grip-closed -1.42, robot = White; heights are fingertip heights).
 Override with `--hover-z/--grasp-z/--grip-closed` only if the board or
 pieces change.

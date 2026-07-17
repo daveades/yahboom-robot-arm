@@ -329,8 +329,10 @@ def main() -> int:
     # printed 26 mm board (2026-07-17); z is fingertip height.
     parser.add_argument("--hover-z", type=float, default=0.10,
                         help="travel height in meters (default 0.10)")
-    parser.add_argument("--grasp-z", type=float, default=0.045,
-                        help="grasp height in meters (default 0.045)")
+    parser.add_argument("--grasp-z", type=float, default=0.053,
+                        help="grasp height in meters (default 0.053: grips "
+                             "the stem - lower catches the flared base and "
+                             "the piece slips out)")
     parser.add_argument("--carry-z", type=float, default=0.16,
                         help="transit height while holding a piece (default "
                              "0.16; auto-lowered toward hover-z for squares "
