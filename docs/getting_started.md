@@ -197,7 +197,7 @@ work in progress — see [object_picking_status.md](object_picking_status.md).
 - If you rename or move packages, always rebuild from a clean
   `build/ install/ log/`.
 - To regenerate the MoveIt configuration with the Setup Assistant:
-  `scripts/run_moveit_setup.sh`.
+  `scripts/one_time/run_moveit_setup.sh`.
 
 ## Troubleshooting
 
