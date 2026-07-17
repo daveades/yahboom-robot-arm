@@ -34,13 +34,9 @@ def generate_launch_description():
             )
         )
     )
-    ld.add_action(
-        IncludeLaunchDescription(
-            PythonLaunchDescriptionSource(
-                PathJoinSubstitution([bringup_share, "launch", "rsp.launch.py"])
-            )
-        )
-    )
+    # No robot_state_publisher here: control.launch.py (the driver side)
+    # owns /joint_states and runs the single rsp. Two rsp instances fight
+    # over TF ("Moved backwards in time" warnings).
 
     move_group_node = Node(
         package="moveit_ros_move_group",
