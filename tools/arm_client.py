@@ -46,8 +46,9 @@ class ArmClient(Node):
         self.tool_len = 0.145
         # Don't approach dead-vertical: a slight slant lets the claw come
         # in across the square and wrap the piece instead of poking its
-        # top. 10 deg = the gripper meets the board at ~80 deg.
-        self.min_tilt_deg = 10.0
+        # top. 18 deg = the gripper meets the board at ~72 deg
+        # (hardware-tuned 2026-07-17; 10 was still too upright).
+        self.min_tilt_deg = 18.0
         self.joint_state: Optional[JointState] = None
         self.arm_client = ActionClient(
             self, FollowJointTrajectory, "/arm_controller/follow_joint_trajectory"
@@ -173,8 +174,13 @@ class ArmClient(Node):
         def direction(c: float):
             return -math.sin(c), math.cos(c)
 
-        start_tilt = min(self.min_tilt_deg, max_tilt)
-        for half_deg in range(int(start_tilt * 2), int(max_tilt * 2) + 1):
+        # Prefer tilts of at least min_tilt_deg (slanted approach), but
+        # fall back toward vertical rather than fail: the close rank-1
+        # squares can only be grasped near-vertical.
+        start = int(min(self.min_tilt_deg, max_tilt) * 2)
+        scan = list(range(start, int(max_tilt * 2) + 1))
+        scan += list(range(start - 1, -1, -1))
+        for half_deg in scan:
             for lean in (1.0, -1.0):    # away from / toward the base
                 t = lean * math.radians(half_deg * 0.5)
                 # Wrist (joint4) sits tool_len back from the grasp point
