@@ -3,7 +3,7 @@
 # once after cloning / pulling structural changes. Idempotent.
 #
 #   docker exec -it dofbot bash
-#   /root/yahboom-robot-arm/scripts/setup_container.sh
+#   /root/yahboom-robot-arm/scripts/one_time/setup_container.sh
 #
 # Does three things:
 #   1. removes the legacy top-level build/install/log trees (the project
@@ -28,8 +28,11 @@ grep -q '^source /opt/ros/humble/setup.bash' /root/.bashrc \
     || echo 'source /opt/ros/humble/setup.bash' >> /root/.bashrc
 grep -q 'dofbot_ros2_ws/install/setup.bash' /root/.bashrc \
     || echo "[ -f $WS/dofbot_ros2_ws/install/setup.bash ] && source $WS/dofbot_ros2_ws/install/setup.bash" >> /root/.bashrc
-grep -q 'alias ros-build=' /root/.bashrc \
-    || echo "alias ros-build='colcon build --symlink-install'" >> /root/.bashrc
+# function (not alias) pinned to the workspace: building anywhere else
+# (e.g. the repo root) would recreate a second build/install tree
+sed -i '/alias ros-build=/d' /root/.bashrc
+grep -q 'ros-build()' /root/.bashrc \
+    || echo "ros-build() { (cd $WS/dofbot_ros2_ws && colcon build --symlink-install \"\$@\"); }" >> /root/.bashrc
 
 echo "==> 3/3 Clean rebuild of dofbot_ros2_ws"
 set +u  # ROS setup files reference unset vars (AMENT_TRACE_SETUP_FILES)
