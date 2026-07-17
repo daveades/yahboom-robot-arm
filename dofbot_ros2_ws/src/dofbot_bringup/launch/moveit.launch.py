@@ -19,11 +19,11 @@ def generate_launch_description():
 
     pkg_share = FindPackageShare("dofbot_bringup")
 
-    moveit_pc = IncludeLaunchDescription(
+    moveit = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             PathJoinSubstitution([pkg_share, "launch", "pc_moveit_rviz.launch.py"])
         ),
         launch_arguments={"use_rviz": use_rviz}.items(),
     )
 
-    return LaunchDescription(declared_arguments + [moveit_pc])
+    return LaunchDescription(declared_arguments + [moveit])

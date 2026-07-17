@@ -11,7 +11,9 @@ from moveit_configs_utils import MoveItConfigsBuilder
 
 
 def generate_launch_description():
-    MoveItConfigsBuilder(
+    # Regenerates robot_description (from dofbot_description's xacro) and
+    # the SRDF at launch time — single source of truth, nothing baked.
+    moveit_config = MoveItConfigsBuilder(
         "yahboom_dofbot", package_name="dofbot_moveit_config"
     ).to_moveit_configs()
 
@@ -46,9 +48,16 @@ def generate_launch_description():
         output="screen",
         parameters=[
             params_file_path,
+            moveit_config.robot_description,
+            moveit_config.robot_description_semantic,
             {
                 "publish_robot_description_semantic": True,
                 "allow_trajectory_execution": True,
+                # The driver adds a startup sync (up to ~4s) and a settle
+                # pause inside the first goal; without this margin MoveIt's
+                # execution monitor cancels it as "taking too long".
+                "trajectory_execution.allowed_execution_duration_scaling": 2.0,
+                "trajectory_execution.allowed_goal_duration_margin": 6.0,
                 "publish_planning_scene": True,
                 "publish_geometry_updates": True,
                 "publish_state_updates": True,
@@ -69,7 +78,11 @@ def generate_launch_description():
             "-d",
             PathJoinSubstitution([pkg_share, "config", "moveit.rviz"]),
         ],
-        parameters=[params_file_path],
+        parameters=[
+            params_file_path,
+            moveit_config.robot_description,
+            moveit_config.robot_description_semantic,
+        ],
         condition=IfCondition(LaunchConfiguration("use_rviz")),
     )
     ld.add_action(rviz_node)

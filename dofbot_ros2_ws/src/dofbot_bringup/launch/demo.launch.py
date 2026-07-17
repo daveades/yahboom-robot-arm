@@ -47,6 +47,8 @@ def generate_launch_description():
         output="screen",
         parameters=[
             params_file_path,
+            moveit_config.robot_description,
+            moveit_config.robot_description_semantic,
             {
                 "publish_robot_description_semantic": True,
                 "allow_trajectory_execution": True,
@@ -70,7 +72,11 @@ def generate_launch_description():
             "-d",
             PathJoinSubstitution([pkg_share, "config", "moveit.rviz"]),
         ],
-        parameters=[params_file_path],
+        parameters=[
+            params_file_path,
+            moveit_config.robot_description,
+            moveit_config.robot_description_semantic,
+        ],
         condition=IfCondition(LaunchConfiguration("use_rviz")),
     )
     ld.add_action(rviz_node)

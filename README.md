@@ -42,6 +42,6 @@ the entrypoints.
 | Task | Command |
 |---|---|
 | Simulate (no hardware) | `ros2 launch dofbot_moveit_config demo.launch.py` |
-| Arm control on the Pi | `ros2 launch dofbot_bringup pi_control.launch.py` |
-| MoveIt + RViz on the PC | `ros2 launch dofbot_bringup moveit_pc.launch.py` |
+| Arm control on the Pi | `ros2 launch dofbot_bringup control.launch.py` |
+| MoveIt + RViz on the PC | `ros2 launch dofbot_bringup moveit.launch.py` |
 | Sync packages to the Pi | `scripts/sync_to_pi.sh` |

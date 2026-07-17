@@ -123,7 +123,7 @@ step 2.
 # One-time: let your user open the serial port, then re-login
 sudo usermod -aG dialout $USER
 
-ros2 launch dofbot_bringup pi_control.launch.py port:=/dev/ttyUSB0
+ros2 launch dofbot_bringup control.launch.py port:=/dev/ttyUSB0
 ```
 
 This starts the driver, robot_state_publisher, ros2_control and spawns the
@@ -143,7 +143,7 @@ ros2 launch dofbot_bringup robot.launch.py port:=/dev/ttyUSB0 use_rviz:=false
 
 ```bash
 export ROS_DOMAIN_ID=<same as Pi>
-ros2 launch dofbot_bringup moveit_pc.launch.py
+ros2 launch dofbot_bringup moveit.launch.py
 ```
 
 RViz opens; plan and execute exactly as in the simulation section — Execute

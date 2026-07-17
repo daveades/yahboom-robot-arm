@@ -9,7 +9,7 @@ def generate_launch_description():
     pkg_share = FindPackageShare("dofbot_bringup")
     include_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
-            PathJoinSubstitution([pkg_share, "launch", "pi_control.launch.py"])
+            PathJoinSubstitution([pkg_share, "launch", "control.launch.py"])
         )
     )
     return LaunchDescription([include_launch])

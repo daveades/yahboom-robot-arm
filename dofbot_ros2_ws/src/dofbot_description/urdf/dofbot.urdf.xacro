@@ -341,11 +341,11 @@
         <mimic joint="grip_joint" multiplier="-1" />
     </joint>
  
+    <!-- Simulation only: on real hardware the driver node serves the
+         FollowJointTrajectory actions directly and no ros2_control runs. -->
     <ros2_control name="DofbotSystem" type="system">
         <hardware>
-            <plugin>dofbot_ros2_control/DofbotTopicHardware</plugin>
-            <param name="command_topic">/target_joints</param>
-            <param name="state_topic">/joint_states</param>
+            <plugin>mock_components/GenericSystem</plugin>
         </hardware>
         <joint name="arm_joint1">
             <command_interface name="position" />

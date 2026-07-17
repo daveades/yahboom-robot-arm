@@ -1,10 +1,17 @@
 #!/usr/bin/env python3
 import rclpy
+from rclpy.action import ActionServer, CancelResponse
+from rclpy.callback_groups import ReentrantCallbackGroup
+from rclpy.executors import MultiThreadedExecutor
 from rclpy.node import Node
 from sensor_msgs.msg import JointState
+from control_msgs.action import FollowJointTrajectory
 import serial
 import time
 import math
+import os
+import glob
+import threading
 
 # Protocol Constants
 HEADER = 0xFF
@@ -15,8 +22,24 @@ CMD_SERVO_WRITE6 = 0x1D
 class ArmUSB:
     def __init__(self, port='/dev/ttyUSB0', baudrate=115200, logger=None):
         self.logger = logger
+        self.port = port
+        self.baudrate = baudrate
+        self.ser = None
+        self.last_open_attempt = 0.0
+        self.lock = threading.Lock()
+        self._open()
+
+    def _open(self):
+        self.last_open_attempt = time.monotonic()
+        port = self.port
+        if not os.path.exists(port):
+            # after a USB drop the device often re-enumerates under a new
+            # name (ttyUSB0 -> ttyUSB1); take whatever ttyUSB is present
+            candidates = sorted(glob.glob('/dev/ttyUSB*'))
+            if candidates:
+                port = candidates[0]
         try:
-            self.ser = serial.Serial(port, baudrate, timeout=1)
+            self.ser = serial.Serial(port, self.baudrate, timeout=1)
             if self.logger: self.logger.info(f"Connected to {port}")
         except Exception as e:
             if self.logger: self.logger.error(f"Error opening serial port {port}: {e}")
@@ -24,16 +47,30 @@ class ArmUSB:
 
     def close(self):
         if self.ser:
-            self.ser.close()
+            try:
+                self.ser.close()
+            except Exception:
+                pass
 
     def _send_packet(self, data):
-        if not self.ser: return
-        csum = sum(data) & 0xFF
-        packet = [HEADER, DEVICE_ID] + data + [csum]
-        try:
-            self.ser.write(bytearray(packet))
-        except Exception as e:
-            if self.logger: self.logger.error(f"Serial write failed: {e}")
+        # The USB device can drop mid-session (cable/brownout + usbipd);
+        # keep retrying the port at most once per second so a re-attach
+        # brings the arm back without restarting the driver.
+        with self.lock:
+            if not self.ser:
+                if time.monotonic() - self.last_open_attempt < 1.0:
+                    return
+                self._open()
+                if not self.ser:
+                    return
+            csum = sum(data) & 0xFF
+            packet = [HEADER, DEVICE_ID] + data + [csum]
+            try:
+                self.ser.write(bytearray(packet))
+            except Exception as e:
+                if self.logger: self.logger.error(f"Serial write failed: {e} — will reconnect")
+                self.close()
+                self.ser = None
 
     @staticmethod
     def _servo_pos(sid, angle):
@@ -78,9 +115,24 @@ class ArmUSB:
         self._send_packet(data)
 
 class DofbotDriver(Node):
+    """Serial driver that executes MoveIt trajectories natively.
+
+    Exposes the two FollowJointTrajectory action servers MoveIt's simple
+    controller manager expects (arm_controller + gripper_controller) and
+    plays trajectories back as timed waypoints: one serial command per
+    segment, with the segment duration as the servo's move time, so the
+    firmware does the interpolation it was designed for. This replaces
+    the old path (ros2_control JTC streaming positions at 100 Hz), which
+    restarted the servo's accel/decel ramp every packet and made motion
+    pulse and lag.
+    """
+
+    ARM_JOINTS = ['arm_joint1', 'arm_joint2', 'arm_joint3', 'arm_joint4', 'arm_joint5']
+    GRIPPER_JOINTS = ['grip_joint']
+
     def __init__(self):
         super().__init__('dofbot_driver')
-        
+
         self.declare_parameter('port', '/dev/ttyUSB0')
         self.declare_parameter('max_speed_deg_s', 120.0)
         self.declare_parameter('min_time_ms', 10)
@@ -90,7 +142,8 @@ class DofbotDriver(Node):
         self.declare_parameter('gripper_closed_deg', 180.0)  # Servo angle at fully closed
         self.declare_parameter('min_delta_deg', 0.5)  # ignore tiny changes to prevent jitter
         self.declare_parameter('startup_time_ms', 4000)  # duration of the slow startup sync sweep
-        self.declare_parameter('startup_moves', 1)
+        self.declare_parameter('min_segment_ms', 100)  # waypoint downsampling floor
+        self.declare_parameter('settle_ms', 150)  # pause after the last waypoint
         port = self.get_parameter('port').value
         self.max_speed_deg_s = float(self.get_parameter('max_speed_deg_s').value)
         self.min_time_ms = int(self.get_parameter('min_time_ms').value)
@@ -100,102 +153,208 @@ class DofbotDriver(Node):
         self.gripper_closed_deg = float(self.get_parameter('gripper_closed_deg').value)
         self.min_delta_deg = float(self.get_parameter('min_delta_deg').value)
         self.startup_time_ms = int(self.get_parameter('startup_time_ms').value)
-        self.startup_moves = int(self.get_parameter('startup_moves').value)
-        
+        self.min_segment_ms = int(self.get_parameter('min_segment_ms').value)
+        self.settle_ms = int(self.get_parameter('settle_ms').value)
+
         self.arm = ArmUSB(port, logger=self.get_logger())
-        
+
         # Joint names matching the URDF
-        self.joint_names = [
-            'arm_joint1', 'arm_joint2', 'arm_joint3', 
-            'arm_joint4', 'arm_joint5', 'grip_joint' # Note: Gripper is 6th
-        ]
-        
+        self.joint_names = self.ARM_JOINTS + self.GRIPPER_JOINTS
+
         # Current state (Degrees)
         self.current_angles = [90.0] * 6
         self.current_angles[5] = self.gripper_closed_deg  # gripper starts closed
         self.last_sent_angles = self.current_angles.copy()
         self.last_send_time = None
-        self.startup_sync_until = None
-        self.startup_moves_remaining = 0  # superseded by the startup sync
-        
+        self.started = False  # startup sync sweep done?
+
+        # One motion at a time: actions serialize on this, and the legacy
+        # streaming topic is dropped while a trajectory is executing.
+        self.motion_lock = threading.Lock()
+
+        self.arm_action = ActionServer(
+            self, FollowJointTrajectory,
+            'arm_controller/follow_joint_trajectory',
+            execute_callback=self.execute_arm,
+            cancel_callback=self._cancel_cb,
+            callback_group=ReentrantCallbackGroup(),
+        )
+        self.gripper_action = ActionServer(
+            self, FollowJointTrajectory,
+            'gripper_controller/follow_joint_trajectory',
+            execute_callback=self.execute_gripper,
+            cancel_callback=self._cancel_cb,
+            callback_group=ReentrantCallbackGroup(),
+        )
+
+        # Legacy streaming interface (kept for tools that publish targets
+        # directly; unused by the MoveIt path).
         self.sub = self.create_subscription(
             JointState,
             'target_joints',
             self.joint_callback,
             10
         )
-        
+
         self.pub = self.create_publisher(JointState, 'joint_states', 10)
-        self.timer = self.create_timer(0.1, self.publish_state)
-        
-        self.get_logger().info("Dofbot Driver Initialized")
+        self.timer = self.create_timer(0.05, self.publish_state)
+
+        self.get_logger().info("Dofbot Driver Initialized (native trajectory execution)")
+
+    # ---------- unit conversion ----------
+
+    def _rad_to_driver_deg(self, idx, pos):
+        """URDF joint position (rad) -> servo angle (deg) for joint index."""
+        if idx == 5:  # gripper: map 0 (open) .. -range (closed)
+            if self.gripper_range_rad > 0:
+                t = (pos + self.gripper_range_rad) / self.gripper_range_rad  # 0..1
+                return self.gripper_closed_deg + t * (self.gripper_open_deg - self.gripper_closed_deg)
+            return self.gripper_open_deg
+        # URDF 0 rad is center; servo 90 deg is center.
+        return math.degrees(pos) + 90.0
+
+    # ---------- trajectory execution ----------
+
+    def _cancel_cb(self, _goal_handle):
+        return CancelResponse.ACCEPT
+
+    def execute_arm(self, goal_handle):
+        return self._execute_trajectory(goal_handle, self.ARM_JOINTS)
+
+    def execute_gripper(self, goal_handle):
+        return self._execute_trajectory(goal_handle, self.GRIPPER_JOINTS)
+
+    def _execute_trajectory(self, goal_handle, allowed_joints):
+        result = FollowJointTrajectory.Result()
+        traj = goal_handle.request.trajectory
+
+        idx_map = []
+        for name in traj.joint_names:
+            if name not in allowed_joints:
+                result.error_code = FollowJointTrajectory.Result.INVALID_JOINTS
+                result.error_string = f'joint {name} not handled by this controller'
+                goal_handle.abort()
+                return result
+            idx_map.append(self.joint_names.index(name))
+
+        if not traj.points:
+            result.error_code = FollowJointTrajectory.Result.SUCCESSFUL
+            goal_handle.succeed()
+            return result
+
+        # Downsample: the firmware interpolates within a segment, so dense
+        # waypoints only add serial traffic. Keep points at least
+        # min_segment_ms apart, plus always the final point.
+        segments = []
+        last_kept_t = None
+        for k, pt in enumerate(traj.points):
+            t = pt.time_from_start.sec + pt.time_from_start.nanosec * 1e-9
+            is_last = (k == len(traj.points) - 1)
+            if last_kept_t is None or is_last or (t - last_kept_t) * 1000.0 >= self.min_segment_ms:
+                segments.append((t, pt))
+                last_kept_t = t
+
+        total_s = segments[-1][0]
+        self.get_logger().info(
+            f"Trajectory goal: {len(traj.joint_names)} joints "
+            f"({', '.join(traj.joint_names)}), {len(traj.points)} points over "
+            f"{total_s:.2f}s -> {len(segments)} segments")
+
+        with self.motion_lock:
+            # Startup sync: on the very first motion, glide ALL servos from
+            # wherever the arm physically is to the trajectory start over
+            # startup_time_ms, so a pose mismatch never causes a jump.
+            if not self.started:
+                t0, pt0 = segments[0]
+                start_angles = self.current_angles.copy()
+                for j, idx in enumerate(idx_map):
+                    start_angles[idx] = self._rad_to_driver_deg(idx, pt0.positions[j])
+                self.get_logger().info(
+                    f"Startup sync: easing arm to trajectory start over {self.startup_time_ms} ms")
+                self.arm.servo_write_all(start_angles, self.startup_time_ms)
+                self.current_angles = start_angles.copy()
+                self.last_sent_angles = start_angles.copy()
+                time.sleep(self.startup_time_ms / 1000.0)
+                self.started = True
+
+            prev_t = None
+            for (t, pt) in segments:
+                if goal_handle.is_cancel_requested:
+                    goal_handle.canceled()
+                    result.error_code = FollowJointTrajectory.Result.SUCCESSFUL
+                    self.get_logger().info("Trajectory canceled; arm holds last waypoint")
+                    return result
+
+                angles = self.current_angles.copy()
+                for j, idx in enumerate(idx_map):
+                    angles[idx] = self._rad_to_driver_deg(idx, pt.positions[j])
+
+                dt = (t - prev_t) if prev_t is not None else t
+                # Respect the hardware speed cap even if the plan is faster.
+                max_delta = max(abs(angles[i] - self.last_sent_angles[i]) for i in range(6))
+                if self.max_speed_deg_s > 0:
+                    dt = max(dt, max_delta / self.max_speed_deg_s)
+                dt_ms = int(max(self.min_time_ms, dt * 1000.0))
+
+                # Use the all-six command so the firmware moves every servo
+                # together over the same duration. Per-servo timed writes
+                # execute one after another on the board (a new command
+                # preempts the previous joint's ramp), which makes joints
+                # blitz sequentially instead of moving in coordination.
+                # Beliefs for untouched joints are grounded by the startup
+                # sync, so re-asserting them here is safe.
+                self.arm.servo_write_all(angles, dt_ms)
+                self.last_sent_angles = angles.copy()
+                self.current_angles = angles
+                prev_t = t
+                if dt_ms > 0:
+                    time.sleep(dt_ms / 1000.0)
+
+            if self.settle_ms > 0:
+                time.sleep(self.settle_ms / 1000.0)
+
+        result.error_code = FollowJointTrajectory.Result.SUCCESSFUL
+        goal_handle.succeed()
+        return result
+
+    # ---------- legacy streaming interface ----------
 
     def joint_callback(self, msg):
-        target_indices = []
-        target_values = [] # In degrees
-        prev_angles = self.current_angles.copy()
-        
-        # Simple mapping assuming order or names
-        # If names provided, map them
+        # Drop streamed targets while a trajectory action is executing.
+        if not self.motion_lock.acquire(blocking=False):
+            return
+        try:
+            self._handle_stream(msg)
+        finally:
+            self.motion_lock.release()
+
+    def _handle_stream(self, msg):
         if msg.name:
             for name, pos in zip(msg.name, msg.position):
                 if name in self.joint_names:
                     idx = self.joint_names.index(name)
-                    deg = math.degrees(pos)
-                    # Mapping: 
-                    # URDF 0 is center? 
-                    # Driver 90 is center.
-                    # Need to check URDF limits. 
-                    # joint1: -1.57 to 1.57 (Radians). 0 is center.
-                    # Arm: 0-180. 90 is center.
-                    # So: Driver_Deg = (Rad * 180/PI) + 90
-                    
-                    if idx == 5:  # gripper: map 0 (open) to -range (closed)
-                        if self.gripper_range_rad > 0:
-                            t = (pos + self.gripper_range_rad) / self.gripper_range_rad  # 0..1
-                            driver_angle = self.gripper_closed_deg + t * (self.gripper_open_deg - self.gripper_closed_deg)
-                        else:
-                            driver_angle = self.gripper_open_deg
-                    else:
-                        driver_angle = deg + 90
-                    self.current_angles[idx] = driver_angle
+                    self.current_angles[idx] = self._rad_to_driver_deg(idx, pos)
         else:
             # Assume ordered 1-6
             for i, pos in enumerate(msg.position):
                 if i < 6:
-                    if i == 5:  # gripper
-                        if self.gripper_range_rad > 0:
-                            t = (pos + self.gripper_range_rad) / self.gripper_range_rad  # 0..1
-                            driver_angle = self.gripper_closed_deg + t * (self.gripper_open_deg - self.gripper_closed_deg)
-                        else:
-                            driver_angle = self.gripper_open_deg
-                    else:
-                        driver_angle = math.degrees(pos) + 90
-                    self.current_angles[i] = driver_angle
+                    self.current_angles[i] = self._rad_to_driver_deg(i, pos)
 
-        # Startup sync: on the first command, deliberately sweep ALL servos
-        # to the commanded pose over startup_time_ms. The servos know their
-        # real positions, so this is a slow glide from wherever the arm
-        # physically is to the pose the stack believes in. Until it
-        # finishes, drop further writes so nothing overrides the glide.
-        now_mono = time.monotonic()
-        if self.startup_sync_until is None:
+        # Startup sync (same rationale as the action path).
+        now = time.monotonic()
+        if not self.started:
             self.arm.servo_write_all(self.current_angles, self.startup_time_ms)
             self.last_sent_angles = self.current_angles.copy()
-            self.last_send_time = now_mono
-            self.startup_sync_until = now_mono + self.startup_time_ms / 1000.0
+            self.last_send_time = now
+            self.started = True
             self.get_logger().info(
                 f"Startup sync: easing arm to commanded pose over "
                 f"{self.startup_time_ms} ms"
             )
-            return
-        if now_mono < self.startup_sync_until:
+            time.sleep(self.startup_time_ms / 1000.0)
             return
 
-        # Send ONLY the servos whose target changed. Writing all six would
-        # re-assert this driver's possibly-stale belief of the other joints
-        # (e.g. a gripper command yanking the whole arm to the assumed
-        # startup pose).
+        # Send ONLY the servos whose target changed.
         changed = [
             i for i, (c, p) in enumerate(zip(self.current_angles, self.last_sent_angles))
             if abs(c - p) >= self.min_delta_deg
@@ -205,11 +364,7 @@ class DofbotDriver(Node):
         max_delta = max(
             abs(self.current_angles[i] - self.last_sent_angles[i]) for i in changed
         )
-        # Pace streamed commands by the real time since the previous packet:
-        # each packet must ask the servo to cover its delta in roughly the
-        # stream interval, or the servo runs slower than the stream, lags
-        # ever further behind, and lurches through the backlog afterwards.
-        now = time.monotonic()
+        # Pace streamed commands by the real time since the previous packet.
         if self.last_send_time is None:
             elapsed_ms = float(self.max_time_ms)
         else:
@@ -223,19 +378,18 @@ class DofbotDriver(Node):
             speed_floor_ms,
             min(elapsed_ms, self.max_time_ms),
         ))
-        if self.startup_moves_remaining > 0:
-            time_ms = max(time_ms, self.startup_time_ms)
-            self.startup_moves_remaining -= 1
         for i in changed:
             self.arm.servo_write(i + 1, self.current_angles[i], time_ms)
             self.last_sent_angles[i] = self.current_angles[i]
         self.last_send_time = now
 
+    # ---------- state publication ----------
+
     def publish_state(self):
         msg = JointState()
         msg.header.stamp = self.get_clock().now().to_msg()
         msg.name = self.joint_names
-        
+
         # Convert Driver(0-180) back to Rad(-90 to 90), except gripper which is 0..90 (0 = closed)
         rads = []
         for i, angle in enumerate(self.last_sent_angles):
@@ -249,15 +403,19 @@ class DofbotDriver(Node):
             else:
                 rad = math.radians(angle - 90)
             rads.append(rad)
-            
+
         msg.position = rads
         self.pub.publish(msg)
 
 def main(args=None):
     rclpy.init(args=args)
     node = DofbotDriver()
+    # Trajectory execution sleeps inside the action callback; a multi-threaded
+    # executor keeps joint_states publishing and cancel requests responsive.
+    executor = MultiThreadedExecutor(num_threads=4)
+    executor.add_node(node)
     try:
-        rclpy.spin(node)
+        executor.spin()
     except KeyboardInterrupt:
         pass
     finally:

@@ -78,7 +78,7 @@ pip3 install torch torchvision --index-url https://download.pytorch.org/whl/cpu
 pip3 install ultralytics "numpy==1.26.4" "opencv-python==4.10.0.84"
 
 # Convenience: auto-source ROS in every shell
-echo 'source /opt/ros/humble/setup.bash; [ -f ~/yahboom-robot-arm/install/setup.bash ] && source ~/yahboom-robot-arm/install/setup.bash' >> ~/.bashrc
+echo 'source /opt/ros/humble/setup.bash; [ -f ~/yahboom-robot-arm/dofbot_ros2_ws/install/setup.bash ] && source ~/yahboom-robot-arm/dofbot_ros2_ws/install/setup.bash' >> ~/.bashrc
 ```
 
 > ⚠️ **Do not skip the constraints file.** ROS Humble's `cv_bridge` and
@@ -173,7 +173,7 @@ hardware needs a Linux host (or the Raspberry Pi split described in
 
 ```bash
 source /opt/ros/humble/setup.bash
-cd <repo>/dofbot_ros2_ws        # in the Path A container: cd ~/yahboom-robot-arm
+cd <repo>/dofbot_ros2_ws        # ALWAYS build here — one workspace, one install tree
 rm -rf build install log
 colcon build --symlink-install
 source install/setup.bash
@@ -217,11 +217,11 @@ Verify in the container/WSL: `ls /dev/ttyUSB*` → `/dev/ttyUSB0`.
 
 ```bash
 # Terminal 1 — driver + ros2_control + controllers:
-ros2 launch dofbot_bringup pi_control.launch.py     # port defaults to /dev/ttyUSB0
+ros2 launch dofbot_bringup control.launch.py     # port defaults to /dev/ttyUSB0
 
 # Terminal 2 — verify, then MoveIt + RViz:
 ros2 control list_controllers      # all three must say "active"
-ros2 launch dofbot_bringup moveit_pc.launch.py
+ros2 launch dofbot_bringup moveit.launch.py
 ```
 
 Plan & Execute in RViz now moves the real arm. **Set Velocity Scaling to
@@ -260,7 +260,7 @@ network bridge:
 3. Container:
 
    ```bash
-   python3 ~/yahboom-robot-arm/tools/stream_camera_node.py \
+   ros2 run dofbot_vision stream_camera \
      --ros-args -p url:=http://host.docker.internal:8090/cam.mjpg
    ```
 
