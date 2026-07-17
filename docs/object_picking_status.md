@@ -65,7 +65,7 @@ Pick once complete. Stopping further picks.
   `FollowJointTrajectory` controllers
 
 Note for WSL2 setups: the camera feed comes from the ffmpeg network bridge
-(`tools/stream_camera_node.py`), not `v4l2_camera` — usbipd cannot stream
+(`ros2 run dofbot_vision stream_camera`), not `v4l2_camera` — usbipd cannot stream
 webcams. See the [setup guide](setup_guide.md).
 
 ## Calibration Procedure (next step)
@@ -105,4 +105,4 @@ webcams. See the [setup guide](setup_guide.md).
 - Picker config: `dofbot_ros2_ws/src/dofbot_vision/config/picking.yaml`
 - MoveIt params (the file that is actually loaded):
   `dofbot_ros2_ws/src/dofbot_moveit_config/config/moveit_params.yaml`
-- Camera bridge: `tools/stream_camera_node.py`
+- Camera bridge: `dofbot_vision/stream_camera.py` (`ros2 run dofbot_vision stream_camera` or `scripts/camera.sh`)

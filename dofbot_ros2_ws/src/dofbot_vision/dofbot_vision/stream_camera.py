@@ -9,7 +9,7 @@ Workaround for WSL2/Docker setups where usbipd cannot stream USB webcams
 
 then point this node at it:
 
-    python3 stream_camera_node.py --ros-args -p url:=http://<windows-ip>:8090/cam.mjpg
+    ros2 run dofbot_vision stream_camera --ros-args -p url:=http://<windows-ip>:8090/cam.mjpg
 
 Publishes sensor_msgs/Image (bgr8) on /image_raw, compatible with
 dofbot_vision's yolo_detector and color_sorter.
