@@ -59,6 +59,8 @@ class BoardMotion:
         self.a1, self.square, self.yaw, self.mirror = geom
         self.hover_z = args.hover_z
         self.grasp_z = args.grasp_z
+        self.carry_z = args.carry_z
+        self.max_tilt = args.max_tilt
         self.grip_open = args.grip_open
         self.grip_closed = args.grip_closed
         # Captured pieces go to a fixed graveyard point past the h-file.
@@ -74,17 +76,36 @@ class BoardMotion:
         return square_to_xy(square_name, self.a1, self.square, self.yaw,
                             self.mirror)
 
+    def _carry_height(self, from_xy: tuple, to_xy: tuple) -> float:
+        """Highest transit height (up to carry_z) both endpoints can reach.
+
+        The traverse between squares interpolates in joint space, so the
+        gripper can dip below its endpoint height mid-swing; carrying the
+        piece well above hover_z keeps it clear of standing pieces. Far
+        squares can't always reach carry_z, so back off toward hover_z
+        until both endpoints solve.
+        """
+        z = max(self.carry_z, self.hover_z)
+        while z > self.hover_z:
+            if (self.client.solve_ik(*from_xy, z, max_tilt_deg=self.max_tilt)
+                    and self.client.solve_ik(*to_xy, z,
+                                             max_tilt_deg=self.max_tilt)):
+                return z
+            z -= 0.01
+        return self.hover_z
+
     def _transfer(self, from_xy: tuple, to_xy: tuple, what: str) -> bool:
-        """Pick at from_xy, place at to_xy, via hover height."""
+        """Pick at from_xy, place at to_xy, traversing at carry height."""
         fx, fy = from_xy
         tx, ty = to_xy
+        cz = self._carry_height(from_xy, to_xy)
         steps = [
             ("open gripper", lambda: self.client.set_gripper(self.grip_open)),
             ("hover source", lambda: self.client.move_to(fx, fy, self.hover_z)),
             ("descend", lambda: self.client.move_to(fx, fy, self.grasp_z)),
             ("grip", lambda: self.client.set_gripper(self.grip_closed)),
-            ("lift", lambda: self.client.move_to(fx, fy, self.hover_z)),
-            ("hover target", lambda: self.client.move_to(tx, ty, self.hover_z)),
+            ("lift high", lambda: self.client.move_to(fx, fy, cz)),
+            ("carry", lambda: self.client.move_to(tx, ty, cz)),
             ("lower", lambda: self.client.move_to(tx, ty, self.grasp_z)),
             ("release", lambda: self.client.set_gripper(self.grip_open)),
             ("retreat", lambda: self.client.move_to(tx, ty, self.hover_z)),
@@ -256,6 +277,10 @@ def main() -> int:
                         help="travel height in meters (default 0.12)")
     parser.add_argument("--grasp-z", type=float, default=0.06,
                         help="grasp height in meters (default 0.06)")
+    parser.add_argument("--carry-z", type=float, default=0.16,
+                        help="transit height while holding a piece (default "
+                             "0.16; auto-lowered toward hover-z for squares "
+                             "that can't reach it)")
     parser.add_argument("--grip-open", type=float, default=0.0,
                         help="grip_joint position for open (default 0.0)")
     parser.add_argument("--grip-closed", type=float, default=-1.0,
