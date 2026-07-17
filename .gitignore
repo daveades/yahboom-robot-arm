@@ -36,3 +36,6 @@
 yolov8n.pt
 /aruco_markers.png
 /aruco_markers.pdf
+/board_sheet*.png
+/board.png
+/board.pdf
