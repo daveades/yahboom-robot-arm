@@ -62,6 +62,10 @@ class BoardMotion:
         self.grasp_z = args.grasp_z
         self.carry_z = args.carry_z
         self.approach_dz = 0.035   # tilt-locked descent starts here
+        # Fingertip grasp point to the bottom of a held piece; scales the
+        # place correction for pick/place tilt mismatch. If pieces still
+        # land off-center radially on cross-rank moves, tune this.
+        self.grip_below = 0.02
         self.max_tilt = args.max_tilt
         self.grip_open = args.grip_open
         self.grip_closed = args.grip_closed
@@ -117,6 +121,29 @@ class BoardMotion:
         az = self.grasp_z + self.approach_dz   # just above the piece tops
         ft = self._column_tilt(fx, fy, az)     # locked pick-column tilt
         tt = self._column_tilt(tx, ty, az)     # locked place-column tilt
+        # Pick and place with the SAME claw pitch whenever possible: the
+        # piece is rigid in the grip, so releasing at a different tilt
+        # than it was grabbed at sets it down tilted - its base lands
+        # toward the square's edge. Far squares need steeper pitch, so
+        # try each column's tilt (steepest first) on all four poses.
+        for common in sorted({t for t in (ft, tt) if t is not None},
+                             key=abs, reverse=True):
+            if all(self.client.solve_ik(px, py, pz, exact_tilt_deg=common)
+                   for px, py in (from_xy, to_xy)
+                   for pz in (az, self.grasp_z)):
+                ft = tt = common
+                break
+        # No common pitch exists for many near<->far pairs (steep pitch
+        # at a near square needs a deeper elbow fold than the +-90 deg
+        # limit allows). The landing error is then exact and predictable:
+        # the piece leans by (tt - ft) and its base lands grip_below *
+        # sin(tt - ft) radially outward - pre-shift the place column
+        # inward to cancel it.
+        if ft is not None and tt is not None and abs(tt - ft) > 0.5:
+            off = self.grip_below * math.sin(math.radians(tt - ft))
+            b = math.atan2(ty, tx)
+            tx -= off * math.cos(b)
+            ty -= off * math.sin(b)
         steps = [
             ("open gripper", lambda: self.client.set_gripper(self.grip_open)),
             ("hover source", lambda: self.client.move_to(fx, fy, self.hover_z)),
