@@ -1,6 +1,11 @@
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
+from launch.actions import (
+    DeclareLaunchArgument,
+    IncludeLaunchDescription,
+    RegisterEventHandler,
+)
 from launch.conditions import IfCondition
+from launch.event_handlers import OnProcessExit
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
@@ -96,28 +101,36 @@ def generate_launch_description():
     )
     ld.add_action(ros2_control_node)
 
+    # Chain the spawners: launching all three at once races the just-started
+    # controller manager and intermittently fails with "no controller with
+    # this name exists" / "Failed to activate".
+    jsb_spawner = Node(
+        package="controller_manager",
+        executable="spawner",
+        arguments=["joint_state_broadcaster"],
+        output="screen",
+    )
+    arm_spawner = Node(
+        package="controller_manager",
+        executable="spawner",
+        arguments=["arm_controller"],
+        output="screen",
+    )
+    gripper_spawner = Node(
+        package="controller_manager",
+        executable="spawner",
+        arguments=["gripper_controller"],
+        output="screen",
+    )
+    ld.add_action(jsb_spawner)
     ld.add_action(
-        Node(
-            package="controller_manager",
-            executable="spawner",
-            arguments=["joint_state_broadcaster"],
-            output="screen",
+        RegisterEventHandler(
+            OnProcessExit(target_action=jsb_spawner, on_exit=[arm_spawner])
         )
     )
     ld.add_action(
-        Node(
-            package="controller_manager",
-            executable="spawner",
-            arguments=["arm_controller"],
-            output="screen",
-        )
-    )
-    ld.add_action(
-        Node(
-            package="controller_manager",
-            executable="spawner",
-            arguments=["gripper_controller"],
-            output="screen",
+        RegisterEventHandler(
+            OnProcessExit(target_action=arm_spawner, on_exit=[gripper_spawner])
         )
     )
 
