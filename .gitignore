@@ -25,3 +25,9 @@
 
 # Rosbags
 *.db3
+
+# Runtime artifacts (logs, calibration images)
+/runs/
+
+# Model weights (ultralytics auto-downloads by name)
+/yolov8n.pt
