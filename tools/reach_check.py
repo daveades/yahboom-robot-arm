@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """IK-check every square of the board model without moving the arm.
 
-For each of the 64 squares, asks /compute_ik whether the arm can reach it
-at --hover-z (travel height) and --grasp-z (pick height), and prints a
-reachability map. Use it to size and place the board before printing or
-taping anything (run against the simulation stack: scripts/sim.sh).
+For each of the 64 squares, solves the arm's closed-form IK for the
+grasp point at --hover-z (travel height) and --grasp-z (pick height),
+and prints a reachability map. Runs standalone - no driver, sim, or
+move_group needed. Use it to size and place the board.
 
     #  = reachable at hover AND grasp height
     o  = hover only        ^  = grasp only
@@ -44,10 +44,6 @@ def main() -> int:
     rclpy.init()
     node = ArmClient("reach_check")
     node.get_logger().set_level(LoggingSeverity.ERROR)  # silence per-square IK warns
-    if not node.ik_client.wait_for_service(timeout_sec=10.0):
-        print("IK service /compute_ik not available - is the stack running "
-              "(scripts/sim.sh or moveit.sh)?", file=sys.stderr)
-        return 1
 
     grid = {}
     n_full = 0

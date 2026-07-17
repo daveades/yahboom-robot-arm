@@ -19,8 +19,9 @@ The script prints the computed (x, y) for every requested square, asks for
 confirmation, then hovers over each square in turn at --z, pausing for
 Enter between squares so you can check alignment with a ruler or by eye.
 
-Uses the same path as pick_from_detections: /compute_ik (position-only IK
-must be active in move_group) and /arm_controller/follow_joint_trajectory.
+IK is solved locally (closed form, grasp-point referenced); motion goes
+through /arm_controller/follow_joint_trajectory - only the driver (or
+sim) needs to be running.
 
 Example:
   python3 tools/hover_test.py --a1 0.16 -0.09 --square 0.025 --yaw 90

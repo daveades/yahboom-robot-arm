@@ -1,8 +1,7 @@
 """Shared arm-motion client for the calibration and chess tools.
 
-Wraps the same path pick_from_detections uses - /compute_ik (position-only
-IK must be active in move_group) + the arm/gripper FollowJointTrajectory
-actions - behind simple calls:
+Closed-form IK for the DOFBOT's planar geometry plus the arm/gripper
+FollowJointTrajectory actions, behind simple calls:
 
     client.move_to(x, y, z)      Cartesian target in the base frame
     client.move_joints(pos)      joint-space target (e.g. home pose)
@@ -19,12 +18,9 @@ import rclpy
 from rclpy.action import ActionClient
 from rclpy.node import Node
 from builtin_interfaces.msg import Duration
-from geometry_msgs.msg import PoseStamped
 from sensor_msgs.msg import JointState
 from control_msgs.action import FollowJointTrajectory
 from trajectory_msgs.msg import JointTrajectoryPoint
-from moveit_msgs.msg import MoveItErrorCodes, RobotState
-from moveit_msgs.srv import GetPositionIK
 
 ARM_JOINTS = [
     "arm_joint1",
@@ -42,8 +38,13 @@ class ArmClient(Node):
         super().__init__(node_name)
         self.move_time = move_time
         self.max_speed = max_speed
+        # arm_joint4 (wrist pitch) to the grasp point between the open
+        # fingertips, along the gripper axis. URDF says 0.17455 to the
+        # wrist-roll frame; the fingers grip a few cm short of that.
+        # If squares drift radially as the gripper descends, this is the
+        # knob: drift outward when lowering -> increase, inward -> decrease.
+        self.tool_len = 0.145
         self.joint_state: Optional[JointState] = None
-        self.ik_client = self.create_client(GetPositionIK, "/compute_ik")
         self.arm_client = ActionClient(
             self, FollowJointTrajectory, "/arm_controller/follow_joint_trajectory"
         )
@@ -56,9 +57,8 @@ class ArmClient(Node):
         self.joint_state = msg
 
     def wait_ready(self) -> bool:
-        if not self.ik_client.wait_for_service(timeout_sec=10.0):
-            self.get_logger().error("IK service /compute_ik not available.")
-            return False
+        # IK is computed locally now - only the driver's action servers
+        # and /joint_states are required; move_group can be down.
         if not self.arm_client.wait_for_server(timeout_sec=10.0):
             self.get_logger().error("Arm controller action not available.")
             return False
@@ -133,102 +133,70 @@ class ArmClient(Node):
         result = self._spin_future(handle.get_result_async(), timeout_sec=10.0)
         return result is not None and result.result.error_code == 0
 
+    # Kinematic constants from dofbot.urdf.xacro. The arm is planar:
+    # joint1 yaws the plane, joints 2-4 pitch within it, joint 5 rolls
+    # the gripper (kept at 0). Angles follow the URDF zero pose (arm
+    # straight up); the gripper's cumulative pitch j2+j3+j4 is -pi when
+    # pointing straight down, -pi + tilt when leaning away from the base.
+    SHOULDER_Z = 0.06605 + 0.0405   # base_link -> arm_joint2 height
+    L2 = 0.0829                     # arm_joint2 -> arm_joint3
+    L3 = 0.0829                     # arm_joint3 -> arm_joint4
+    JOINT_LIMIT = math.pi / 2       # joints 1-4 are all +-90 deg
+
     def solve_ik(self, x: float, y: float, z: float,
                  max_tilt_deg: Optional[float] = None,
                  attempts: int = 2) -> Optional[List[float]]:
-        """Position-only IK with sanity filtering; None if unreachable.
+        """Closed-form IK for the GRASP POINT (between the fingertips).
 
-        max_tilt_deg limits the gripper's tilt from vertical-down (joints
-        2+3+4 sum to -180 deg when pointing straight down). Position-only
-        IK will otherwise happily "reach" far targets with the arm
-        stretched horizontal - poses that cannot pick anything up.
+        Deterministic replacement for MoveIt's randomized position-only
+        IK, which (a) positioned the wrist frame rather than the
+        fingertips, so the touch point slid radially as the gripper tilt
+        changed with height, and (b) returned a different contortion on
+        every call. Here the tilt is scanned from vertical outward, so
+        the returned pose is always the most vertical grasp available
+        and identical for identical targets. `attempts` is unused (kept
+        for API compatibility).
         """
-        pose = PoseStamped()
-        pose.header.frame_id = "base_link"
-        pose.pose.position.x = float(x)
-        pose.pose.position.y = float(y)
-        pose.pose.position.z = float(z)
-        pose.pose.orientation.w = 1.0  # ignored: position-only IK
-
         bearing = math.atan2(y, x)
-        current = self.current_positions()
+        if abs(bearing) > self.JOINT_LIMIT:
+            return None
+        rho = math.hypot(x, y)          # radial distance in the arm plane
+        zeta = z - self.SHOULDER_Z      # height relative to the shoulder
+        max_tilt = 60.0 if max_tilt_deg is None else float(max_tilt_deg)
 
-        # Seed IK from the CURRENT elbow pose (base swapped to the new
-        # bearing) so consecutive targets get the same arm fold and the
-        # transition is a direct sweep. Fall back to a neutral reach pose
-        # (also used from upright, where the zero pose is a bad seed).
-        seeds = []
-        if any(abs(p) > 0.15 for p in current[1:4]):
-            seeds.append([bearing] + current[1:4] + [0.0])
-        seeds.append([bearing, 0.5, -1.0, -0.8, 0.0])
+        # (rho, zeta) direction of a segment whose cumulative joint angle
+        # is C: straight up at C=0, leaning toward +rho as C goes negative.
+        def direction(c: float):
+            return -math.sin(c), math.cos(c)
 
-        # The solver is randomized: a solvable pose can fail one attempt,
-        # so run the seed list `attempts` times before giving up. Solutions
-        # inside the sanity limits still differ by several degrees of base
-        # bearing and wrist roll — and the fingertips hang well below the
-        # wrist frame the IK positions, so every degree walks them sideways
-        # on the board. Score all candidates and keep the straightest.
-        best: Optional[List[float]] = None
-        best_score = math.inf
-        for seed_pos in seeds * max(1, attempts):
-            seed = JointState()
-            seed.name = list(ARM_JOINTS)
-            seed.position = seed_pos
-
-            req = GetPositionIK.Request()
-            req.ik_request.group_name = "arm"
-            req.ik_request.ik_link_name = "arm_link5"
-            req.ik_request.pose_stamped = pose
-            req.ik_request.avoid_collisions = False
-            req.ik_request.timeout = Duration(sec=1)
-            req.ik_request.robot_state = RobotState(joint_state=seed)
-
-            res = self._spin_future(self.ik_client.call_async(req), timeout_sec=5.0)
-            if res is None:
-                self.get_logger().warn("IK service call failed or timed out.")
-                continue
-            if res.error_code.val != MoveItErrorCodes.SUCCESS:
-                self.get_logger().warn(
-                    f"IK error {res.error_code.val} for x={x:.3f} y={y:.3f} "
-                    f"z={z:.3f} (target may be out of reach)"
-                )
-                continue
-
-            lookup = {n: i for i, n in enumerate(res.solution.joint_state.name)}
-            try:
-                cand = [
-                    float(res.solution.joint_state.position[lookup[n]])
-                    for n in ARM_JOINTS
-                ]
-            except KeyError:
-                self.get_logger().warn("IK solution missing arm joints.")
-                continue
-
-            # Position-only IK has 2 spare DOF and can return folded/rolled
-            # poses. A sane top-down reach must swing the base toward the
-            # target and keep the wrist roll near zero.
-            j1_err = math.degrees(abs(cand[0] - bearing))
-            j5_off = math.degrees(abs(cand[4]))
-            if j1_err > 8.0 or j5_off > 20.0:
-                self.get_logger().warn(
-                    f"Rejecting contorted IK solution: base off-bearing by "
-                    f"{j1_err:.0f}deg, wrist roll {j5_off:.0f}deg."
-                )
-                continue
-            pitch = math.degrees(sum(cand[1:4]))
-            tilt = abs(180.0 - abs(pitch))
-            if max_tilt_deg is not None and tilt > max_tilt_deg:
-                self.get_logger().warn(
-                    f"Rejecting IK solution: gripper tilted {tilt:.0f}deg "
-                    f"from vertical (max {max_tilt_deg:.0f}deg)."
-                )
-                continue
-            score = 2.0 * j1_err + j5_off + 0.1 * tilt
-            if j1_err <= 1.0 and j5_off <= 2.0:
-                return cand  # already straight; skip the remaining attempts
-            if score < best_score:
-                best, best_score = cand, score
-        return best
+        for half_deg in range(int(max_tilt * 2) + 1):
+            for lean in (1.0, -1.0):    # away from / toward the base
+                t = lean * math.radians(half_deg * 0.5)
+                # Wrist (joint4) sits tool_len back from the grasp point
+                # along the gripper axis.
+                wr = rho - self.tool_len * math.sin(t)
+                wz = zeta + self.tool_len * math.cos(t)
+                reach = math.hypot(wr, wz)
+                if reach < 1e-6 or reach > self.L2 + self.L3:
+                    continue
+                # Isoceles triangle shoulder->elbow->wrist (L2 == L3).
+                cum_wrist = math.atan2(-wr, wz)
+                spread = math.acos(min(1.0, reach / (2.0 * self.L2)))
+                pitch = -math.pi + t    # required j2+j3+j4
+                best = None
+                for elbow in (1.0, -1.0):
+                    j2 = cum_wrist + elbow * spread
+                    j3 = -2.0 * elbow * spread
+                    j4 = pitch - j2 - j3
+                    j4 -= 2.0 * math.pi * round(j4 / (2.0 * math.pi))
+                    if max(abs(j2), abs(j3), abs(j4)) > self.JOINT_LIMIT + 1e-9:
+                        continue
+                    elbow_height = self.L2 * math.cos(j2)
+                    if best is None or elbow_height > best[0]:
+                        best = (elbow_height, [bearing, j2, j3, j4, 0.0])
+                if best is not None:
+                    return best[1]
+        return None
 
     def move_joints(self, target: List[float],
                     move_time: Optional[float] = None) -> bool:
