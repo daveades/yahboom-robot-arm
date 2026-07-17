@@ -9,6 +9,14 @@ model in config/board.yaml.
 Works identically in simulation (scripts/sim.sh) and on hardware
 (scripts/driver.sh + scripts/moveit.sh) - same IK service, same actions.
 
+The arm cannot reach a full-size board (far squares force a horizontal
+gripper that cannot grasp), so at startup the reachable squares are
+mapped (cached in runs/reach_cache.json) and the engine is restricted to
+physically playable moves; if none exists the robot asks for a hand.
+Place the board with the ROBOT'S OWN back rank nearest the base - e.g.
+robot plays White and rank 1 is the near edge - so its pieces and the
+center fall inside the reachable band.
+
 Usage:
     python3 tools/chess_game.py                    # human White, robot Black
     python3 tools/chess_game.py --robot-color white
@@ -22,8 +30,10 @@ Dependencies (inside the container):
     apt-get install -y stockfish
 """
 import argparse
+import json
 import shutil
 import sys
+from pathlib import Path
 
 try:
     import chess
@@ -131,6 +141,73 @@ class BoardMotion:
         return True
 
 
+REACH_CACHE = Path(__file__).resolve().parents[1] / "runs" / "reach_cache.json"
+
+
+def map_reachable_squares(node, motion: BoardMotion, args) -> set:
+    """Squares where the arm can both hover and grasp; cached per geometry.
+
+    The arm cannot cover a full-size board (far ranks need a stretched,
+    horizontal gripper that cannot pick pieces), so the robot's move
+    choice is restricted to this set. Play with the robot's own back rank
+    nearest the base.
+    """
+    key = (f"a1={motion.a1[0]:.3f},{motion.a1[1]:.3f} sq={motion.square:.4f} "
+           f"yaw={motion.yaw:.1f} mir={motion.mirror} "
+           f"hover={motion.hover_z:.3f} grasp={motion.grasp_z:.3f} "
+           f"tilt={args.max_tilt:.0f}")
+    cache = {}
+    if REACH_CACHE.exists():
+        try:
+            cache = json.loads(REACH_CACHE.read_text())
+        except (json.JSONDecodeError, OSError):
+            cache = {}
+    if key in cache:
+        return set(cache[key])
+
+    print("Mapping reachable squares (one-time per geometry, ~1-2 min) ...")
+    from rclpy.logging import LoggingSeverity
+    node.get_logger().set_level(LoggingSeverity.ERROR)
+    reach = set()
+    for sq in chess.SQUARE_NAMES:
+        x, y = motion.xy(sq)
+        if (node.solve_ik(x, y, motion.hover_z, max_tilt_deg=args.max_tilt,
+                          attempts=1) is not None
+                and node.solve_ik(x, y, motion.grasp_z,
+                                  max_tilt_deg=args.max_tilt,
+                                  attempts=1) is not None):
+            reach.add(sq)
+    node.get_logger().set_level(LoggingSeverity.INFO)
+
+    cache[key] = sorted(reach)
+    try:
+        REACH_CACHE.parent.mkdir(parents=True, exist_ok=True)
+        REACH_CACHE.write_text(json.dumps(cache, indent=1))
+    except OSError as exc:
+        print(f"(could not cache reach map: {exc})")
+    return reach
+
+
+def move_is_reachable(board: chess.Board, move: chess.Move, reach: set,
+                      discard_ok: bool) -> bool:
+    """Can the arm physically execute this move?"""
+    squares = [move.from_square, move.to_square]
+    if board.is_capture(move):
+        if not discard_ok:
+            return False
+        cap = move.to_square
+        if board.is_en_passant(move):
+            cap += -8 if board.turn == chess.WHITE else 8
+        squares.append(cap)
+    if board.is_castling(move):
+        rank = 0 if board.turn == chess.WHITE else 7
+        if board.is_kingside_castling(move):
+            squares += [chess.square(7, rank), chess.square(5, rank)]
+        else:
+            squares += [chess.square(0, rank), chess.square(3, rank)]
+    return all(chess.square_name(s) in reach for s in squares)
+
+
 def parse_human_move(board: chess.Board, text: str):
     """Accept SAN or UCI; return a legal Move or None."""
     text = text.strip()
@@ -183,6 +260,9 @@ def main() -> int:
                         help="grip_joint position for open (default 0.0)")
     parser.add_argument("--grip-closed", type=float, default=-1.0,
                         help="grip_joint position for closed (default -1.0)")
+    parser.add_argument("--max-tilt", type=float, default=45.0,
+                        help="max gripper tilt from vertical in degrees for "
+                             "reachability (default 45)")
     parser.add_argument("--discard", nargs=2, type=float, default=None,
                         metavar=("X", "Y"),
                         help="captured-piece drop point in base frame "
@@ -211,6 +291,8 @@ def main() -> int:
 
     motion = None
     node = None
+    reach = None
+    discard_ok = True
     if not args.no_arm:
         if not HAVE_ROS:
             engine.quit()
@@ -225,6 +307,22 @@ def main() -> int:
         print("Settling 4s (lets any driver startup correction finish) ...")
         node.settle(4.0)
         motion = BoardMotion(node, geom, args)
+        reach = map_reachable_squares(node, motion, args)
+        dx, dy = motion.discard_xy
+        discard_ok = (node.solve_ik(dx, dy, motion.hover_z,
+                                    max_tilt_deg=args.max_tilt) is not None
+                      and node.solve_ik(dx, dy, motion.grasp_z,
+                                        max_tilt_deg=args.max_tilt) is not None)
+        by_rank = {r: sum(1 for s in reach if s[1] == r) for r in "12345678"}
+        discard_note = ("OK" if discard_ok else
+                        "UNREACHABLE - captures disabled, consider --discard X Y")
+        print(f"Arm can play on {len(reach)}/64 squares "
+              f"(per rank 1..8: {[by_rank[r] for r in '12345678']}); "
+              f"discard point {discard_note}")
+        if not reach:
+            engine.quit()
+            sys.exit("No reachable squares at all - check board placement "
+                     "(board.yaml) against reality with tools/reach_check.py.")
 
     board = chess.Board(args.fen) if args.fen else chess.Board()
     robot_color = chess.WHITE if args.robot_color == "white" else chess.BLACK
@@ -240,16 +338,27 @@ def main() -> int:
 
             robot_turn = args.self_play or board.turn == robot_color
             if robot_turn:
-                result = engine.play(board,
-                                     chess.engine.Limit(time=args.think_time))
-                move = result.move
-                print(f"{side} (robot): {board.san(move)}")
-                if motion is not None:
-                    if not motion.execute(board, move):
-                        print("Arm failed to execute the move - stopping so "
-                              "the physical board stays in sync.")
-                        break
-                    motion.go_home()
+                limit = chess.engine.Limit(time=args.think_time)
+                allowed = None
+                if reach is not None:
+                    allowed = [m for m in board.legal_moves
+                               if move_is_reachable(board, m, reach, discard_ok)]
+                if allowed is not None and not allowed:
+                    # Nothing physically playable: let the engine pick freely
+                    # and ask the human to move the pieces for the robot.
+                    move = engine.play(board, limit).move
+                    print(f"{side} (robot): {board.san(move)} - OUT OF REACH")
+                    input(f"    Please make this move for me ("
+                          f"{move.uci()}), then press Enter ")
+                else:
+                    move = engine.play(board, limit, root_moves=allowed).move
+                    print(f"{side} (robot): {board.san(move)}")
+                    if motion is not None:
+                        if not motion.execute(board, move):
+                            print("Arm failed to execute the move - stopping "
+                                  "so the physical board stays in sync.")
+                            break
+                        motion.go_home()
             else:
                 while True:
                     text = input(f"{side} (you), your move: ").strip()

@@ -133,8 +133,16 @@ class ArmClient(Node):
         result = self._spin_future(handle.get_result_async(), timeout_sec=10.0)
         return result is not None and result.result.error_code == 0
 
-    def solve_ik(self, x: float, y: float, z: float) -> Optional[List[float]]:
-        """Position-only IK with sanity filtering; None if unreachable."""
+    def solve_ik(self, x: float, y: float, z: float,
+                 max_tilt_deg: Optional[float] = None,
+                 attempts: int = 2) -> Optional[List[float]]:
+        """Position-only IK with sanity filtering; None if unreachable.
+
+        max_tilt_deg limits the gripper's tilt from vertical-down (joints
+        2+3+4 sum to -180 deg when pointing straight down). Position-only
+        IK will otherwise happily "reach" far targets with the arm
+        stretched horizontal - poses that cannot pick anything up.
+        """
         pose = PoseStamped()
         pose.header.frame_id = "base_link"
         pose.pose.position.x = float(x)
@@ -155,8 +163,8 @@ class ArmClient(Node):
         seeds.append([bearing, 0.5, -1.0, -0.8, 0.0])
 
         # The solver is randomized: a solvable pose can fail one attempt,
-        # so run the seed list twice before giving up.
-        for seed_pos in seeds + seeds:
+        # so run the seed list `attempts` times before giving up.
+        for seed_pos in seeds * max(1, attempts):
             seed = JointState()
             seed.name = list(ARM_JOINTS)
             seed.position = seed_pos
@@ -201,6 +209,15 @@ class ArmClient(Node):
                     f"{j1_err:.0f}deg, wrist roll {j5_off:.0f}deg."
                 )
                 continue
+            if max_tilt_deg is not None:
+                pitch = math.degrees(sum(cand[1:4]))
+                tilt = abs(180.0 - abs(pitch))
+                if tilt > max_tilt_deg:
+                    self.get_logger().warn(
+                        f"Rejecting IK solution: gripper tilted {tilt:.0f}deg "
+                        f"from vertical (max {max_tilt_deg:.0f}deg)."
+                    )
+                    continue
             return cand
         return None
 

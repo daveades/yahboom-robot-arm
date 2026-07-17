@@ -31,6 +31,9 @@ def main() -> int:
                         help="travel height in meters (default 0.12)")
     parser.add_argument("--grasp-z", type=float, default=0.06,
                         help="grasp height in meters (default 0.06)")
+    parser.add_argument("--max-tilt", type=float, default=35.0,
+                        help="max gripper tilt from vertical in degrees "
+                             "(default 35; pass 999 to disable)")
     args = parser.parse_args()
 
     a1, square, yaw, mirror = resolve_board(args)
@@ -54,8 +57,10 @@ def main() -> int:
             sq = f"{file}{rank}"
             x, y = square_to_xy(sq, a1, square, yaw, mirror)
             dists.append((math.hypot(x, y), sq))
-            hover_ok = node.solve_ik(x, y, args.hover_z) is not None
-            grasp_ok = node.solve_ik(x, y, args.grasp_z) is not None
+            hover_ok = node.solve_ik(x, y, args.hover_z,
+                                     max_tilt_deg=args.max_tilt) is not None
+            grasp_ok = node.solve_ik(x, y, args.grasp_z,
+                                     max_tilt_deg=args.max_tilt) is not None
             grid[sq] = ("#" if hover_ok and grasp_ok else
                         "o" if hover_ok else
                         "^" if grasp_ok else ".")
