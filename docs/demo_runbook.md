@@ -97,8 +97,13 @@ in Terminal 1's log → proceed.
 Set up all 32 pieces (robot = White on the near ranks), then:
 
 ```bash
-python3 tools/chess_game.py --hover-z <H> --grasp-z <G> --grip-closed <C> --skill 3
+python3 tools/chess_game.py --skill 3
 ```
+
+The calibrated numbers are the defaults (hover 0.10, grasp 0.045,
+grip-closed -1.42, robot = White; heights are fingertip heights).
+Override with `--hover-z/--grasp-z/--grip-closed` only if the board or
+pieces change.
 
 - Startup maps reachable squares once (cached in
   `runs/reach_cache.json`; auto-invalidates when geometry/heights

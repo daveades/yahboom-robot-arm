@@ -46,8 +46,8 @@ DEFAULT_SQUARES = ["a1", "h1", "h8", "a8", "d4", "e5"]
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     add_board_args(parser)
-    parser.add_argument("--z", type=float, default=0.12,
-                        help="hover height in meters (default 0.12)")
+    parser.add_argument("--z", type=float, default=0.10,
+                        help="hover height in meters (default 0.10)")
     parser.add_argument("--move-time", type=float, default=3.0,
                         help="minimum seconds per move (default 3.0)")
     parser.add_argument("--max-speed", type=float, default=0.5,

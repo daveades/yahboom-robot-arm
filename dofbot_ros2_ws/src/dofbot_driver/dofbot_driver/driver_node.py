@@ -408,10 +408,15 @@ class DofbotDriver(Node):
         rads = []
         for i, angle in enumerate(self.last_sent_angles):
             if i == 5:  # gripper: map servo degrees back to [-range, 0]
+                # DISPLAY ONLY - the URDF's grip_joint convention is the
+                # mirror of the command convention (URDF renders 0 rad as
+                # CLOSED fingers, -range as open; commands use 0 = open).
+                # Publish the mirrored value so RViz matches the real claw;
+                # the command path and calibrated grip values are untouched.
                 denom = (self.gripper_open_deg - self.gripper_closed_deg)
                 if self.gripper_range_rad > 0 and abs(denom) > 1e-6:
                     t = (angle - self.gripper_closed_deg) / denom  # 0..1
-                    rad = (t * self.gripper_range_rad) - self.gripper_range_rad
+                    rad = -t * self.gripper_range_rad
                 else:
                     rad = 0.0
             else:

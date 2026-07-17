@@ -257,7 +257,8 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     add_board_args(parser)
     parser.add_argument("--robot-color", choices=["white", "black"],
-                        default="black", help="side the robot plays (default black)")
+                        default="white", help="side the robot plays (default "
+                        "white: near ranks, where its reach is)")
     parser.add_argument("--fen", default=None,
                         help="start from this position instead of the "
                              "initial one (the physical board must match)")
@@ -273,18 +274,21 @@ def main() -> int:
                         help="Stockfish skill level 0-20 (default 5)")
     parser.add_argument("--think-time", type=float, default=0.3,
                         help="engine seconds per move (default 0.3)")
-    parser.add_argument("--hover-z", type=float, default=0.12,
-                        help="travel height in meters (default 0.12)")
-    parser.add_argument("--grasp-z", type=float, default=0.06,
-                        help="grasp height in meters (default 0.06)")
+    # Height/grip defaults are the hardware-calibrated values for the
+    # printed 26 mm board (2026-07-17); z is fingertip height.
+    parser.add_argument("--hover-z", type=float, default=0.10,
+                        help="travel height in meters (default 0.10)")
+    parser.add_argument("--grasp-z", type=float, default=0.045,
+                        help="grasp height in meters (default 0.045)")
     parser.add_argument("--carry-z", type=float, default=0.16,
                         help="transit height while holding a piece (default "
                              "0.16; auto-lowered toward hover-z for squares "
                              "that can't reach it)")
     parser.add_argument("--grip-open", type=float, default=0.0,
                         help="grip_joint position for open (default 0.0)")
-    parser.add_argument("--grip-closed", type=float, default=-1.0,
-                        help="grip_joint position for closed (default -1.0)")
+    parser.add_argument("--grip-closed", type=float, default=-1.42,
+                        help="grip_joint position for closed (default -1.42, "
+                             "calibrated on the demo pieces)")
     parser.add_argument("--max-tilt", type=float, default=45.0,
                         help="max gripper tilt from vertical in degrees for "
                              "reachability (default 45)")
