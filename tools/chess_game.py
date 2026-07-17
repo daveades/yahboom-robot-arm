@@ -303,6 +303,16 @@ def main() -> int:
     print(f"Board: a1=({a1[0]:.3f}, {a1[1]:.3f})  square={square*1000:.0f}mm  "
           f"yaw={yaw:.0f}deg  mirror={mirror}")
 
+    # Validate the position BEFORE anything is spawned: Stockfish
+    # SEGFAULTS on illegal positions (e.g. missing kings) instead of
+    # reporting an error, and bailing out later would leak the engine's
+    # event-loop thread, which keeps the process alive forever.
+    board = chess.Board(args.fen) if args.fen else chess.Board()
+    if not board.is_valid():
+        print(f"Illegal position ({board.status()!r}) - both kings must be "
+              "on the board and the position must be legal.", file=sys.stderr)
+        return 1
+
     # Debian installs stockfish into /usr/games, often not on PATH.
     engine_path = (args.engine or shutil.which("stockfish")
                    or shutil.which("stockfish", path="/usr/games"))
@@ -349,7 +359,6 @@ def main() -> int:
             sys.exit("No reachable squares at all - check board placement "
                      "(board.yaml) against reality with tools/reach_check.py.")
 
-    board = chess.Board(args.fen) if args.fen else chess.Board()
     robot_color = chess.WHITE if args.robot_color == "white" else chess.BLACK
     resigned = False
 
