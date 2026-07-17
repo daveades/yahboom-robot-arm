@@ -1,4 +1,10 @@
 #!/usr/bin/env python3
+"""Manual 4-point pixel->base homography (generic fallback).
+
+Prefer tools/calibrate_camera.py (scripts/homography.sh): it auto-detects
+49 chessboard corners and is far more accurate. Use this only for scenes
+without a chessboard, entering the point correspondences by hand.
+"""
 import argparse
 import sys
 
