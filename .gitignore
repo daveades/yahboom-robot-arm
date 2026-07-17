@@ -31,3 +31,6 @@
 
 # Model weights (ultralytics auto-downloads by name)
 /yolov8n.pt
+
+# stray auto-downloads anywhere in the tree
+yolov8n.pt

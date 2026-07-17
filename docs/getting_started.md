@@ -117,33 +117,22 @@ Configure via env vars: `PI_HOST` (default `ubuntu@192.168.82.50`), `PI_KEY`
 (default `~/.ssh/raspi`), `PI_BASE`. Then build on the Pi the same way as in
 step 2.
 
-### On the Pi
+### Driver (container terminal 1)
 
 ```bash
-# One-time: let your user open the serial port, then re-login
-sudo usermod -aG dialout $USER
-
-ros2 launch dofbot_bringup control.launch.py port:=/dev/ttyUSB0
+scripts/driver.sh        # or: ros2 launch dofbot_bringup control.launch.py
 ```
 
-This starts the driver, robot_state_publisher, ros2_control and spawns the
-three controllers. Useful driver parameters (set in the launch or via
-`--ros-args -p`): `max_speed_deg_s` (default 120), `gripper_open_deg` /
-`gripper_closed_deg`, `min_delta_deg` jitter filter.
+This starts the serial driver and robot_state_publisher; the driver itself
+serves the arm/gripper FollowJointTrajectory actions (no ros2_control on
+hardware). Useful driver parameters (via `--ros-args -p`):
+`max_speed_deg_s` (default 120), `startup_time_ms` startup glide,
+`gripper_open_deg` / `gripper_closed_deg`, `min_delta_deg` jitter filter.
 
-For hardware bring-up testing **without** ros2_control/MoveIt (driver +
-robot_state_publisher only, so you can watch `/joint_states` and publish
-`/target_joints` by hand):
-
-```bash
-ros2 launch dofbot_bringup robot.launch.py port:=/dev/ttyUSB0 use_rviz:=false
-```
-
-### On the PC
+### MoveIt (container terminal 2)
 
 ```bash
-export ROS_DOMAIN_ID=<same as Pi>
-ros2 launch dofbot_bringup moveit.launch.py
+scripts/moveit.sh        # or: ros2 launch dofbot_bringup moveit.launch.py
 ```
 
 RViz opens; plan and execute exactly as in the simulation section — Execute
@@ -161,13 +150,14 @@ ros2 topic list | grep target_joints # command path to the driver exists
 
 ## 5. Vision (optional)
 
-On the Pi, start the driver + camera (`ros-humble-v4l2-camera` required):
+Start the camera bridge (Windows streamer + container node — see
+setup_guide section 4):
 
 ```bash
-ros2 launch dofbot_vision vision.launch.py
+scripts/camera.sh        # publishes /image_raw
 ```
 
-On the PC, install the YOLO dependencies once, in a venv that can still see
+Install the YOLO dependencies once, in a venv that can still see
 the ROS Python packages:
 
 ```bash
@@ -188,14 +178,14 @@ ros2 launch dofbot_vision yolo.launch.py image_topic:=/image_raw model:=yolov8n.
 ```
 
 The object-picking pipeline (`pick.launch.py`, `pick_from_detections`) is
-work in progress — see [object_picking_status.md](object_picking_status.md).
+the basis for the chess pick-and-place work.
 
 ## 6. Development notes
 
-- `dofbot_moveit_config` launch files are thin wrappers around
-  `dofbot_bringup`; prefer the `dofbot_bringup` launches for actual use.
-- If you rename or move packages, always rebuild from a clean
-  `build/ install/ log/`.
+- Launch files live in `dofbot_bringup`; `dofbot_moveit_config` holds
+  configuration only.
+- Always build in `dofbot_ros2_ws` (use the `ros-build` alias); if a build
+  behaves strangely, rebuild from a clean `build/ install/ log/`.
 - To regenerate the MoveIt configuration with the Setup Assistant:
   `scripts/one_time/run_moveit_setup.sh`.
 

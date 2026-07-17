@@ -12,7 +12,7 @@ then point this node at it:
     ros2 run dofbot_vision stream_camera --ros-args -p url:=http://<windows-ip>:8090/cam.mjpg
 
 Publishes sensor_msgs/Image (bgr8) on /image_raw, compatible with
-dofbot_vision's yolo_detector and color_sorter.
+dofbot_vision's yolo_detector.
 """
 import time
 

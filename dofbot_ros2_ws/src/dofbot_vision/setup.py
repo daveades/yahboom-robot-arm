@@ -25,7 +25,6 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'color_sorter = dofbot_vision.color_sorter:main',
             'yolo_detector = dofbot_vision.yolo_detector:main',
             'pick_from_detections = dofbot_vision.pick_from_detections:main',
             'stream_camera = dofbot_vision.stream_camera:main',
