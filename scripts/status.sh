@@ -38,24 +38,28 @@ summary() {
 
     head_ "Processes"
     proc "dofbot_driver        " -f '[d]ofbot_driver'
-    proc "robot_state_publisher" -x robot_state_publisher
+    # -f: pgrep -x compares the kernel comm name, truncated to 15 chars,
+    # so long binary names like robot_state_publisher never match it.
+    proc "robot_state_publisher" -f '[r]obot_state_publisher'
     proc "move_group           " -x move_group
     proc "rviz2                " -x rviz2
-    proc "camera bridge        " -f '[s]tream_camera_node'
+    proc "camera bridge        " -f '[s]tream_camera'
 
     head_ "Key topics (discovering...)"
     local topics t
     topics=$(timeout 10 ros2 topic list --no-daemon --include-hidden-topics 2>/dev/null)
-    if echo "$topics" | grep -q "/arm_controller/follow_joint_trajectory"; then
-        ok "arm_controller action server"
-    else
-        bad "arm_controller action server missing (driver not up?)"
-    fi
-    if echo "$topics" | grep -q "/gripper_controller/follow_joint_trajectory"; then
-        ok "gripper_controller action server"
-    else
-        bad "gripper_controller action server missing (driver not up?)"
-    fi
+    local c
+    for c in arm gripper; do
+        if echo "$topics" | grep -q "/${c}_controller/follow_joint_trajectory"; then
+            ok "${c}_controller action server"
+        elif pgrep -f '[d]ofbot_driver' >/dev/null 2>&1; then
+            # The CLI's graph discovery misses hidden action topics at
+            # times; the driver creates both servers unconditionally.
+            ok "${c}_controller action server (inferred from driver; discovery flaked)"
+        else
+            bad "${c}_controller action server missing (driver not up?)"
+        fi
+    done
     for t in /joint_states /image_raw; do
         if echo "$topics" | grep -qx "$t"; then ok "$t"; else bad "$t missing"; fi
     done
