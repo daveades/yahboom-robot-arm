@@ -16,8 +16,15 @@ offsets:             # measured with tools/place_test.py 2026-07-18:
   a2: [0.0, 0.0]
   d3: [-0.004, 0.0]      # hardware-verified at 32deg pitch (2026-07-18)
   e3: [-0.004, 0.0]      # hardware-verified at 32deg pitch
-  g2: [-0.002, -0.004]   # MEASURED at 32deg pitch: landed 17.0/3.2 vs
-                         # center 16.9/3.9 with the (-9,-5) provisional.
-                         # (Do NOT model-extrapolate anchors across pitch
-                         # changes - tried twice, wrong sign both times.
-                         # Measure with tools/place_test.py instead.)
+  g2: [-0.002, -0.004]   # PENDING re-measure at the pinned 28deg pitch;
+                         # its pitch floated before, so old measurements
+                         # (17.0/3.2 then 17.0/3.0) were uncalibratable.
+  h2: [-0.002, -0.003]   # explicit (was inheriting from g2) - holds h2
+                         # steady while g2 is recalibrated. Verified good.
+
+pitch:                 # pin a square's claw pitch (deg from vertical) so
+                       # its column never floats with the anchor. Only
+                       # squares whose pitch slides need this.
+  g2: 28               # sat mid-range (27.5-30 deg) so anchor tweaks
+                       # moved the pitch, which moved the tip - the
+                       # non-monotonic 'moves backward' behavior. Pinned.

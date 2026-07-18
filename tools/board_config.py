@@ -22,9 +22,17 @@ DEFAULT_PATH = Path(__file__).resolve().parents[1] / "config" / "board.yaml"
 # claw is off; a zero anchor is information too ("this square is good").
 _OFFSET_ANCHORS: dict = {}
 
+# Optional `pitch:` map of square -> claw pitch (deg from vertical) to
+# PIN that square's pick/place column to a fixed angle. Squares whose
+# geometry leaves the pitch free to slide with the target are not
+# calibratable (the anchor moves the pitch, the pitch moves the tip),
+# so pin them here. Squares already clamped at the preferred pitch don't
+# need an entry.
+_PITCH_PINS: dict = {}
+
 
 def load_board(path: str | None = None) -> dict:
-    global _OFFSET_ANCHORS
+    global _OFFSET_ANCHORS, _PITCH_PINS
     p = Path(path) if path else DEFAULT_PATH
     with open(p) as f:
         d = yaml.safe_load(f)
@@ -32,12 +40,23 @@ def load_board(path: str | None = None) -> dict:
         str(k).strip().lower(): (float(v[0]), float(v[1]))
         for k, v in (d.get("offsets") or {}).items()
     }
+    _PITCH_PINS = {
+        str(k).strip().lower(): float(v)
+        for k, v in (d.get("pitch") or {}).items()
+    }
     return {
         "a1": (float(d["a1"][0]), float(d["a1"][1])),
         "square": float(d["square"]),
         "yaw_deg": float(d["yaw_deg"]),
         "mirror": bool(d.get("mirror", False)),
     }
+
+
+def pitch_pin(square: str | None):
+    """Fixed claw pitch (deg) for a square, or None if it may float."""
+    if not square:
+        return None
+    return _PITCH_PINS.get(square.strip().lower())
 
 
 def _offset_at(file_idx: int, rank_idx: int) -> Tuple[float, float]:

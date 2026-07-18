@@ -56,7 +56,8 @@ def main() -> int:
         for sq in args.squares:
             input(f"\nCenter a piece EXACTLY on {sq}, then press Enter ")
             if not motion._transfer(motion.xy(sq), motion.xy(sq),
-                                    f"{sq} round trip"):
+                                    f"{sq} round trip",
+                                    from_sq=sq, to_sq=sq):
                 print(f"  !! round trip on {sq} failed")
                 continue
             print(f"  Measure {sq}: mm forward (+toward rank 8) and "

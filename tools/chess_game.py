@@ -42,7 +42,8 @@ try:
 except ImportError:
     sys.exit("python-chess is not installed: pip install chess")
 
-from board_config import add_board_args, resolve as resolve_board, square_to_xy
+from board_config import (add_board_args, resolve as resolve_board,
+                          square_to_xy, pitch_pin)
 
 try:  # ROS only needed for actual motion (--no-arm works without it)
     import rclpy
@@ -102,7 +103,7 @@ class BoardMotion:
             z -= 0.01
         return self.hover_z
 
-    def _column_tilt(self, x: float, y: float):
+    def _column_tilt(self, x: float, y: float, pin: float = None):
         """One claw pitch that solves the whole descent column.
 
         The required tilt changes with height at longer reach, so a
@@ -112,20 +113,32 @@ class BoardMotion:
         at the preferred pick_tilt and deviating only as far as the
         geometry demands (steeper first, then more vertical, then
         leaning toward the base).
+
+        A pinned square (board.yaml `pitch:`) takes that exact angle when
+        it solves - the pitch then never floats with the anchor, so the
+        square's offset anchor is calibratable. If a pin is infeasible
+        here the scan runs anyway rather than dropping the move.
         """
         az = self.grasp_z + self.approach_dz
+
+        def feasible(t):
+            return (self.client.solve_ik(x, y, az, exact_tilt_deg=t)
+                    and self.client.solve_ik(x, y, self.grasp_z,
+                                              exact_tilt_deg=t))
+
+        if pin is not None and feasible(pin):
+            return pin
         prefer = self.pick_tilt
         up = [prefer + 0.5 * k for k in range(int(2 * (self.max_tilt - prefer)) + 1)]
         down = [prefer - 0.5 * k for k in range(1, int(2 * prefer) + 1)]
         toward = [-0.5 * k for k in range(1, int(2 * self.max_tilt) + 1)]
         for t in up + down + toward:
-            if (self.client.solve_ik(x, y, az, exact_tilt_deg=t)
-                    and self.client.solve_ik(x, y, self.grasp_z,
-                                             exact_tilt_deg=t)):
+            if feasible(t):
                 return t
         return None
 
-    def _transfer(self, from_xy: tuple, to_xy: tuple, what: str) -> bool:
+    def _transfer(self, from_xy: tuple, to_xy: tuple, what: str,
+                  from_sq: str = None, to_sq: str = None) -> bool:
         """Pick at from_xy, place at to_xy, traversing at carry height."""
         fx, fy = from_xy
         tx, ty = to_xy
@@ -138,15 +151,18 @@ class BoardMotion:
         fy += self.pick_forward * math.sin(b)
         cz = self._carry_height(from_xy, to_xy)
         az = self.grasp_z + self.approach_dz   # just above the piece tops
-        ft = self._column_tilt(fx, fy)         # locked pick-column tilt
-        tt = self._column_tilt(tx, ty)         # locked place-column tilt
+        ft = self._column_tilt(fx, fy, pitch_pin(from_sq))  # locked pick tilt
+        tt = self._column_tilt(tx, ty, pitch_pin(to_sq))    # locked place tilt
         # The pick column always keeps its NATURAL pitch: forcing a
         # steeper-than-natural pick (an earlier common-pitch attempt)
         # was hardware-tested to grab off-center - a missed grab fails
         # hard, while a place offset is compensable. Place with the
         # pick's pitch when the target allows it, so the piece (rigid in
-        # the grip) is released exactly as vertical as it was grabbed.
-        if ft is not None and all(
+        # the grip) is released exactly as vertical as it was grabbed -
+        # unless the destination is pinned, whose fixed pitch must stand
+        # so its offset anchor stays calibratable (the pre-shift branch
+        # then compensates any pick/place lean).
+        if pitch_pin(to_sq) is None and ft is not None and all(
                 self.client.solve_ik(tx, ty, pz, exact_tilt_deg=ft)
                 for pz in (az, self.grasp_z)):
             tt = ft
@@ -201,7 +217,8 @@ class BoardMotion:
             cap_name = chess.square_name(cap_square)
             print(f"    capturing {cap_name} -> discard pile")
             if not self._transfer(self.xy(cap_name), self.discard_xy,
-                                  f"captured piece from {cap_name}"):
+                                  f"captured piece from {cap_name}",
+                                  from_sq=cap_name):
                 return False
 
         # 2. The moving piece.
@@ -209,7 +226,8 @@ class BoardMotion:
         to_name = chess.square_name(move.to_square)
         print(f"    moving {from_name} -> {to_name}")
         if not self._transfer(self.xy(from_name), self.xy(to_name),
-                              f"piece {from_name}->{to_name}"):
+                              f"piece {from_name}->{to_name}",
+                              from_sq=from_name, to_sq=to_name):
             return False
 
         # 3. Castling also moves the rook.
@@ -221,7 +239,8 @@ class BoardMotion:
                 r_from, r_to = "a" + rank, "d" + rank
             print(f"    castling: rook {r_from} -> {r_to}")
             if not self._transfer(self.xy(r_from), self.xy(r_to),
-                                  f"rook {r_from}->{r_to}"):
+                                  f"rook {r_from}->{r_to}",
+                                  from_sq=r_from, to_sq=r_to):
                 return False
 
         # 4. Promotion needs a human hand (no spare queens in the gripper).
