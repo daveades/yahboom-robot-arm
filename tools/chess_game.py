@@ -62,6 +62,7 @@ class BoardMotion:
         self.grasp_z = args.grasp_z
         self.carry_z = args.carry_z
         self.approach_dz = 0.035   # tilt-locked descent starts here
+        self.pick_tilt = args.pick_tilt
         # Fingertip grasp point to the bottom of a held piece; scales the
         # place correction for pick/place tilt mismatch. If pieces still
         # land off-center radially on cross-rank moves, tune this.
@@ -100,18 +101,28 @@ class BoardMotion:
             z -= 0.01
         return self.hover_z
 
-    def _column_tilt(self, x: float, y: float, z: float):
-        """Signed gripper tilt of the free solution at (x, y, z).
+    def _column_tilt(self, x: float, y: float):
+        """One claw pitch that solves the whole descent column.
 
         The required tilt changes with height at longer reach, so a
         plain descend re-pitches the claw mid-drop and its fingers sweep
-        an arc around the piece (rank-4 picks were flaky). Locking the
-        descent to the approach pose's tilt makes it a straight column.
+        an arc around the piece (rank-4 picks were flaky). Scan for a
+        pitch feasible at BOTH the approach and grasp heights, starting
+        at the preferred pick_tilt and deviating only as far as the
+        geometry demands (steeper first, then more vertical, then
+        leaning toward the base).
         """
-        sol = self.client.solve_ik(x, y, z, max_tilt_deg=self.max_tilt)
-        if sol is None:
-            return None
-        return math.degrees(math.pi + sum(sol[1:4]))
+        az = self.grasp_z + self.approach_dz
+        prefer = self.pick_tilt
+        up = [prefer + 0.5 * k for k in range(int(2 * (self.max_tilt - prefer)) + 1)]
+        down = [prefer - 0.5 * k for k in range(1, int(2 * prefer) + 1)]
+        toward = [-0.5 * k for k in range(1, int(2 * self.max_tilt) + 1)]
+        for t in up + down + toward:
+            if (self.client.solve_ik(x, y, az, exact_tilt_deg=t)
+                    and self.client.solve_ik(x, y, self.grasp_z,
+                                             exact_tilt_deg=t)):
+                return t
+        return None
 
     def _transfer(self, from_xy: tuple, to_xy: tuple, what: str) -> bool:
         """Pick at from_xy, place at to_xy, traversing at carry height."""
@@ -119,8 +130,8 @@ class BoardMotion:
         tx, ty = to_xy
         cz = self._carry_height(from_xy, to_xy)
         az = self.grasp_z + self.approach_dz   # just above the piece tops
-        ft = self._column_tilt(fx, fy, az)     # locked pick-column tilt
-        tt = self._column_tilt(tx, ty, az)     # locked place-column tilt
+        ft = self._column_tilt(fx, fy)         # locked pick-column tilt
+        tt = self._column_tilt(tx, ty)         # locked place-column tilt
         # The pick column always keeps its NATURAL pitch: forcing a
         # steeper-than-natural pick (an earlier common-pitch attempt)
         # was hardware-tested to grab off-center - a missed grab fails
@@ -347,6 +358,11 @@ def main() -> int:
     parser.add_argument("--max-tilt", type=float, default=45.0,
                         help="max gripper tilt from vertical in degrees for "
                              "reachability (default 45)")
+    parser.add_argument("--pick-tilt", type=float, default=25.0,
+                        help="preferred claw pitch (deg from vertical) for "
+                             "pick/place columns; each column keeps one "
+                             "pitch, deviating only where the geometry "
+                             "demands (default 25)")
     parser.add_argument("--discard", nargs=2, type=float, default=None,
                         metavar=("X", "Y"),
                         help="captured-piece drop point in base frame "

@@ -33,6 +33,7 @@ def main() -> int:
     parser.add_argument("--grasp-z", type=float, default=0.053)
     parser.add_argument("--carry-z", type=float, default=0.16)
     parser.add_argument("--max-tilt", type=float, default=45.0)
+    parser.add_argument("--pick-tilt", type=float, default=25.0)
     parser.add_argument("--grip-open", type=float, default=-1.1)
     parser.add_argument("--grip-closed", type=float, default=-1.42)
     parser.add_argument("--move-time", type=float, default=2.0)
