@@ -35,6 +35,7 @@ def main() -> int:
     parser.add_argument("--max-tilt", type=float, default=45.0)
     parser.add_argument("--pick-tilt", type=float, default=32.0)
     parser.add_argument("--pick-forward", type=float, default=0.002)
+    parser.add_argument("--place-back", type=float, default=0.001)
     parser.add_argument("--grip-open", type=float, default=-1.1)
     parser.add_argument("--grip-closed", type=float, default=-1.42)
     parser.add_argument("--move-time", type=float, default=2.0)

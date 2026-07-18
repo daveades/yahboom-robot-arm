@@ -65,6 +65,7 @@ class BoardMotion:
         self.approach_dz = 0.035   # tilt-locked descent starts here
         self.pick_tilt = args.pick_tilt
         self.pick_forward = args.pick_forward
+        self.place_back = args.place_back
         # Fingertip grasp point to the bottom of a held piece; scales the
         # place correction for pick/place tilt mismatch. If pieces still
         # land off-center radially on cross-rank moves, tune this.
@@ -188,6 +189,15 @@ class BoardMotion:
             b = math.atan2(ty, tx)
             tx -= off * math.cos(b)
             ty -= off * math.sin(b)
+        # Global release drift: the tilted claw lets the piece creep
+        # forward (away from the base) as it opens. Nudge every drop
+        # radially back toward the base axis to land centered. Drop only
+        # - the pick keeps its forward overshoot.
+        if self.place_back:
+            r = math.hypot(tx, ty)
+            if r > 1e-6:
+                tx -= self.place_back * tx / r
+                ty -= self.place_back * ty / r
         steps = [
             ("open gripper", lambda: self.client.set_gripper(self.grip_open)),
             ("hover source", lambda: self.client.move_to(fx, fy, self.hover_z)),
@@ -405,6 +415,10 @@ def main() -> int:
                         help="pick overshoot along the reach direction in "
                              "meters, so the claw extends beyond the piece "
                              "(default 0.002)")
+    parser.add_argument("--place-back", type=float, default=0.001,
+                        help="shift every drop radially toward the base by "
+                             "this many meters, to cancel the forward creep "
+                             "as the tilted claw opens (default 0.001)")
     parser.add_argument("--discard", nargs=2, type=float, default=None,
                         metavar=("X", "Y"),
                         help="captured-piece drop point in base frame "
