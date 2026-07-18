@@ -552,7 +552,10 @@ def main() -> int:
         engine.quit()
         if node is not None:
             node.destroy_node()
-            rclpy.shutdown()
+            # Ctrl-C inside an rclpy call may already have torn the
+            # context down; a second shutdown raises RCLError.
+            if rclpy.ok():
+                rclpy.shutdown()
     return 0
 
 

@@ -126,7 +126,10 @@ def main() -> None:
         print("\nStopped.")
     finally:
         node.destroy_node()
-        rclpy.shutdown()
+        # Ctrl-C inside an rclpy call may already have torn the context
+        # down; a second shutdown raises RCLError.
+        if rclpy.ok():
+            rclpy.shutdown()
 
 
 if __name__ == "__main__":
