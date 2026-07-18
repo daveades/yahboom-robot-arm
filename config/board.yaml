@@ -11,6 +11,10 @@ offsets:             # measured with tools/place_test.py 2026-07-18:
                      # meters ADDED to the commanded square center so the
                      # claw lands centered; interpolated between anchors.
                      # Zero anchors mark squares verified as centered.
+                     # NOTE anchors depend on the claw pitch they were
+                     # measured at - re-verify after changing --pick-tilt.
   a2: [0.0, 0.0]
-  d3: [0.0, 0.0]
+  d3: [-0.004, 0.0]      # PROVISIONAL at 32deg pitch: claw reached beyond
+  e3: [-0.004, 0.0]      # the piece on the middle files; pull inward 4mm.
   g2: [-0.006, -0.006]   # claw landed 6mm forward + 6mm left of center
+                         # (measured at ~26deg pitch)
