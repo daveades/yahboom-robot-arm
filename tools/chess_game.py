@@ -366,11 +366,11 @@ def main() -> int:
     parser.add_argument("--max-tilt", type=float, default=45.0,
                         help="max gripper tilt from vertical in degrees for "
                              "reachability (default 45)")
-    parser.add_argument("--pick-tilt", type=float, default=25.0,
+    parser.add_argument("--pick-tilt", type=float, default=32.0,
                         help="preferred claw pitch (deg from vertical) for "
                              "pick/place columns; each column keeps one "
                              "pitch, deviating only where the geometry "
-                             "demands (default 25)")
+                             "demands (default 32)")
     parser.add_argument("--pick-forward", type=float, default=0.002,
                         help="pick overshoot along the reach direction in "
                              "meters, so the claw extends beyond the piece "
