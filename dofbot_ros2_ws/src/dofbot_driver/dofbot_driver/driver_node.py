@@ -142,7 +142,13 @@ class DofbotDriver(Node):
         self.declare_parameter('gripper_closed_deg', 180.0)  # Servo angle at fully closed
         self.declare_parameter('min_delta_deg', 0.5)  # ignore tiny changes to prevent jitter
         self.declare_parameter('startup_time_ms', 4000)  # duration of the slow startup sync sweep
-        self.declare_parameter('min_segment_ms', 100)  # waypoint downsampling floor
+        # Waypoint downsampling floor. Each serial command restarts the
+        # firmware's internal ramp, so chunking a move into short segments
+        # makes the arm stop-start at every boundary. Yahboom's own demos
+        # send ONE write6 per motion leg and let the firmware interpolate
+        # the whole thing - a floor above the typical leg duration (2-3s)
+        # reproduces that: only the final point of each leg survives.
+        self.declare_parameter('min_segment_ms', 3000)
         self.declare_parameter('settle_ms', 150)  # pause after the last waypoint
         port = self.get_parameter('port').value
         self.max_speed_deg_s = float(self.get_parameter('max_speed_deg_s').value)
@@ -257,14 +263,16 @@ class DofbotDriver(Node):
             return result
 
         # Downsample: the firmware interpolates within a segment, so dense
-        # waypoints only add serial traffic. Keep points at least
-        # min_segment_ms apart, plus always the final point.
+        # waypoints only add serial traffic and ramp restarts. Keep points
+        # at least min_segment_ms apart (measured from t=0, so the dense
+        # near-zero leading samples are dropped too), plus always the
+        # final point.
         segments = []
-        last_kept_t = None
+        last_kept_t = 0.0
         for k, pt in enumerate(traj.points):
             t = pt.time_from_start.sec + pt.time_from_start.nanosec * 1e-9
             is_last = (k == len(traj.points) - 1)
-            if last_kept_t is None or is_last or (t - last_kept_t) * 1000.0 >= self.min_segment_ms:
+            if is_last or (t - last_kept_t) * 1000.0 >= self.min_segment_ms:
                 segments.append((t, pt))
                 last_kept_t = t
 
