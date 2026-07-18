@@ -14,7 +14,12 @@ offsets:             # measured with tools/place_test.py 2026-07-18:
                      # NOTE anchors depend on the claw pitch they were
                      # measured at - re-verify after changing --pick-tilt.
   a2: [0.0, 0.0]
-  d3: [-0.004, 0.0]      # PROVISIONAL at 32deg pitch: claw reached beyond
-  e3: [-0.004, 0.0]      # the piece on the middle files; pull inward 4mm.
-  g2: [-0.006, -0.006]   # claw landed 6mm forward + 6mm left of center
-                         # (measured at ~26deg pitch)
+  d3: [-0.004, 0.0]      # hardware-verified at 32deg pitch (2026-07-18)
+  e3: [-0.004, 0.0]      # hardware-verified at 32deg pitch
+  # Right wing: the pitch bump (26deg -> 26.5/28/30.5) moved the claw
+  # outward ~1mm per degree (rate measured at d3). These extend the
+  # measured g2 anchor by that model - PROVISIONAL, verify with
+  # tools/place_test.py f2 g2 h2 and replace with measured values.
+  f2: [-0.0065, -0.0045]
+  g2: [-0.009, -0.005]   # measured (-6,-6) at 26deg + modeled pitch shift
+  h2: [-0.011, -0.003]
