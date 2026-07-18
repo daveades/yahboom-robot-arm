@@ -198,6 +198,9 @@ class BoardMotion:
             if r > 1e-6:
                 tx -= self.place_back * tx / r
                 ty -= self.place_back * ty / r
+        fmt = lambda t: "free" if t is None else f"{t:.1f}deg"
+        print(f"    pick ({fx:.3f}, {fy:.3f}) tilt {fmt(ft)}  ->  "
+              f"place ({tx:.3f}, {ty:.3f}) tilt {fmt(tt)}  carry z {cz:.2f}")
         steps = [
             ("open gripper", lambda: self.client.set_gripper(self.grip_open)),
             ("hover source", lambda: self.client.move_to(fx, fy, self.hover_z)),

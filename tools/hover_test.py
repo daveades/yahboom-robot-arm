@@ -48,6 +48,10 @@ def main() -> None:
     add_board_args(parser)
     parser.add_argument("--z", type=float, default=0.10,
                         help="hover height in meters (default 0.10)")
+    parser.add_argument("--tilt", type=float, default=None, metavar="DEG",
+                        help="pin the claw pitch (deg from vertical), exactly "
+                             "as a pick column does - park at the real pick "
+                             "pose to measure command-vs-actual with a ruler")
     parser.add_argument("--move-time", type=float, default=3.0,
                         help="minimum seconds per move (default 3.0)")
     parser.add_argument("--max-speed", type=float, default=0.5,
@@ -110,8 +114,11 @@ def main() -> None:
             print(f"Setting gripper to {args.gripper} ...")
             node.set_gripper(args.gripper)
         for sq, x, y in targets:
-            print(f"\n--> Hovering over {sq} (x={x:.3f}, y={y:.3f}) ...")
-            ok = node.move_to(x, y, args.z)
+            tilt_note = (f", tilt {args.tilt:.0f}deg"
+                         if args.tilt is not None else "")
+            print(f"\n--> Hovering over {sq} (x={x:.3f}, y={y:.3f}"
+                  f"{tilt_note}) ...")
+            ok = node.move_to(x, y, args.z, exact_tilt_deg=args.tilt)
             print(f"    {'OK' if ok else 'FAILED'} - check gripper alignment over {sq}")
             if sq != targets[-1][0]:
                 input("    Press Enter for next square (Ctrl-C to stop) ")
