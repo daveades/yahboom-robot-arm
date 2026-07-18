@@ -12,17 +12,49 @@ import yaml
 
 DEFAULT_PATH = Path(__file__).resolve().parents[1] / "config" / "board.yaml"
 
+# Calibration offsets measured with tools/place_test.py: board.yaml may
+# carry an `offsets:` map of square -> [dx, dy] (meters, base frame) to
+# ADD to the commanded position so the claw lands centered there.
+# Between anchors the offset is inverse-distance-weighted: each measured
+# square pins its own neighborhood, corrections fade smoothly toward
+# anchors measured as centered, and extrapolation past the outermost
+# anchor stays bounded at that anchor's value. Add anchors wherever the
+# claw is off; a zero anchor is information too ("this square is good").
+_OFFSET_ANCHORS: dict = {}
+
 
 def load_board(path: str | None = None) -> dict:
+    global _OFFSET_ANCHORS
     p = Path(path) if path else DEFAULT_PATH
     with open(p) as f:
         d = yaml.safe_load(f)
+    _OFFSET_ANCHORS = {
+        str(k).strip().lower(): (float(v[0]), float(v[1]))
+        for k, v in (d.get("offsets") or {}).items()
+    }
     return {
         "a1": (float(d["a1"][0]), float(d["a1"][1])),
         "square": float(d["square"]),
         "yaw_deg": float(d["yaw_deg"]),
         "mirror": bool(d.get("mirror", False)),
     }
+
+
+def _offset_at(file_idx: int, rank_idx: int) -> Tuple[float, float]:
+    if not _OFFSET_ANCHORS:
+        return 0.0, 0.0
+    num_x = num_y = den = 0.0
+    for name, (dx, dy) in _OFFSET_ANCHORS.items():
+        df = file_idx - (ord(name[0]) - ord("a"))
+        dr = rank_idx - (int(name[1]) - 1)
+        d2 = df * df + dr * dr
+        if d2 == 0:
+            return dx, dy
+        w = 1.0 / d2
+        num_x += w * dx
+        num_y += w * dy
+        den += w
+    return num_x / den, num_y / den
 
 
 def resolve(args) -> tuple:
@@ -71,7 +103,8 @@ def square_to_xy(
 
     x = a1[0] + size * (file_idx * fx + rank_idx * rx)
     y = a1[1] + size * (file_idx * fy + rank_idx * ry)
-    return x, y
+    dx, dy = _offset_at(file_idx, rank_idx)
+    return x + dx, y + dy
 
 
 def add_board_args(parser) -> None:

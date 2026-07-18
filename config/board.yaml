@@ -7,3 +7,10 @@ square: 0.026        # square size, meters — ruler-check the print! If a
                      # printed square isn't 26 mm, put the measured size here.
 yaw_deg: -90.0       # file direction a->h: 0 = +x (away), 90 = +y (left)
 mirror: false        # flip rank direction if hovers land mirrored
+offsets:             # measured with tools/place_test.py 2026-07-18:
+                     # meters ADDED to the commanded square center so the
+                     # claw lands centered; interpolated between anchors.
+                     # Zero anchors mark squares verified as centered.
+  a2: [0.0, 0.0]
+  d3: [0.0, 0.0]
+  g2: [-0.006, -0.006]   # claw landed 6mm forward + 6mm left of center
