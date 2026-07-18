@@ -104,8 +104,15 @@ def square_to_xy(
     size: float,
     yaw_deg: float,
     mirror: bool,
+    apply_offset: bool = True,
 ) -> Tuple[float, float]:
-    """Base-frame (x, y) of a square's center, e.g. square_to_xy('e4', ...)."""
+    """Base-frame (x, y) of a square's center, e.g. square_to_xy('e4', ...).
+
+    apply_offset adds the calibration anchor (default). Pass False for the
+    NOMINAL center - used to choose the claw pitch, which must not depend
+    on the anchor or the anchor could never be calibrated (adjusting it
+    would move the pitch, which moves the tip).
+    """
     name = square.strip().lower()
     if len(name) != 2 or name[0] not in "abcdefgh" or name[1] not in "12345678":
         raise ValueError(f"Bad square name: {square!r}")
@@ -122,8 +129,10 @@ def square_to_xy(
 
     x = a1[0] + size * (file_idx * fx + rank_idx * rx)
     y = a1[1] + size * (file_idx * fy + rank_idx * ry)
-    dx, dy = _offset_at(file_idx, rank_idx)
-    return x + dx, y + dy
+    if apply_offset:
+        dx, dy = _offset_at(file_idx, rank_idx)
+        x, y = x + dx, y + dy
+    return x, y
 
 
 def add_board_args(parser) -> None:

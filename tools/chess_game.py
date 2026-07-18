@@ -85,6 +85,11 @@ class BoardMotion:
         return square_to_xy(square_name, self.a1, self.square, self.yaw,
                             self.mirror)
 
+    def nominal_xy(self, square_name: str) -> tuple:
+        """Anchor-free center - used only to choose the claw pitch."""
+        return square_to_xy(square_name, self.a1, self.square, self.yaw,
+                            self.mirror, apply_offset=False)
+
     def _carry_height(self, from_xy: tuple, to_xy: tuple) -> float:
         """Highest transit height (up to carry_z) both endpoints can reach.
 
@@ -142,6 +147,14 @@ class BoardMotion:
         """Pick at from_xy, place at to_xy, traversing at carry height."""
         fx, fy = from_xy
         tx, ty = to_xy
+        # Choose each column's pitch from the NOMINAL (anchor-free) square
+        # center, so adjusting a square's offset anchor never moves its
+        # pitch (the coupling that made anchors uncalibratable). The
+        # discard point has no square, so use its actual position.
+        fpx, fpy = self.nominal_xy(from_sq) if from_sq else (fx, fy)
+        tpx, tpy = self.nominal_xy(to_sq) if to_sq else (tx, ty)
+        ft = self._column_tilt(fpx, fpy, pitch_pin(from_sq))  # locked pick tilt
+        tt = self._column_tilt(tpx, tpy, pitch_pin(to_sq))    # locked place tilt
         # Overshoot the pick slightly along the reach direction so the
         # claw extends beyond the piece and wraps it, instead of its
         # fingertips catching the near edge. Pick only - drops land
@@ -151,8 +164,6 @@ class BoardMotion:
         fy += self.pick_forward * math.sin(b)
         cz = self._carry_height(from_xy, to_xy)
         az = self.grasp_z + self.approach_dz   # just above the piece tops
-        ft = self._column_tilt(fx, fy, pitch_pin(from_sq))  # locked pick tilt
-        tt = self._column_tilt(tx, ty, pitch_pin(to_sq))    # locked place tilt
         # The pick column always keeps its NATURAL pitch: forcing a
         # steeper-than-natural pick (an earlier common-pitch attempt)
         # was hardware-tested to grab off-center - a missed grab fails

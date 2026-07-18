@@ -1,30 +1,23 @@
 # Chess board model in the robot base frame — the single source of truth
 # read by tools/hover_test.py, tools/chess_game.py, tools/reach_check.py
 # (CLI flags override). Re-measure whenever the board or the robot moves.
+#
+# Calibration reset 2026-07-18 (full, from scratch). Re-verify a1 by
+# hover, then rebuild the per-square offsets with tools/place_test.py.
+# Pitch is now chosen from each square's NOMINAL center, so an offset
+# anchor no longer drags the pitch - anchors are directly calibratable.
 a1: [0.130, 0.100]   # center of square a1, meters (x forward, y left)
-                     # y measured 2026-07-17: board sits 1 cm left of nominal
+                     # STARTING GUESS - re-verify with hover_test a1.
 square: 0.026        # square size, meters — ruler-check the print! If a
                      # printed square isn't 26 mm, put the measured size here.
 yaw_deg: -90.0       # file direction a->h: 0 = +x (away), 90 = +y (left)
 mirror: false        # flip rank direction if hovers land mirrored
-offsets:             # measured with tools/place_test.py 2026-07-18:
-                     # meters ADDED to the commanded square center so the
-                     # claw lands centered; interpolated between anchors.
-                     # Zero anchors mark squares verified as centered.
-                     # NOTE anchors depend on the claw pitch they were
-                     # measured at - re-verify after changing --pick-tilt.
-  a2: [0.0, 0.0]
-  d3: [-0.004, 0.0]      # hardware-verified at 32deg pitch (2026-07-18)
-  e3: [-0.004, 0.0]      # hardware-verified at 32deg pitch
-  g2: [-0.002, -0.004]   # PENDING re-measure at the pinned 28deg pitch;
-                         # its pitch floated before, so old measurements
-                         # (17.0/3.2 then 17.0/3.0) were uncalibratable.
-  h2: [-0.002, -0.003]   # explicit (was inheriting from g2) - holds h2
-                         # steady while g2 is recalibrated. Verified good.
 
-pitch:                 # pin a square's claw pitch (deg from vertical) so
-                       # its column never floats with the anchor. Only
-                       # squares whose pitch slides need this.
-  g2: 28               # sat mid-range (27.5-30 deg) so anchor tweaks
-                       # moved the pitch, which moved the tip - the
-                       # non-monotonic 'moves backward' behavior. Pinned.
+# offsets:           # square -> [dx, dy] meters ADDED to the commanded
+#   e4: [0.0, 0.0]   # center so the claw lands centered; inverse-distance
+#                    # interpolated between anchors. Rebuild by measuring
+#                    # with tools/place_test.py. (empty = no correction)
+
+# pitch:             # square -> claw pitch (deg) to pin a square whose
+#   g2: 28           # pitch still slides even after the nominal-center
+#                    # fix. Try without pins first; add only if needed.
