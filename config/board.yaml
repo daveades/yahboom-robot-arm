@@ -6,8 +6,11 @@
 # hover, then rebuild the per-square offsets with tools/place_test.py.
 # Pitch is now chosen from each square's NOMINAL center, so an offset
 # anchor no longer drags the pitch - anchors are directly calibratable.
-a1: [0.130, 0.100]   # center of square a1, meters (x forward, y left)
-                     # STARTING GUESS - re-verify with hover_test a1.
+a1: [0.140, 0.091]   # center of square a1, meters (x forward, y left)
+                     # PHYSICALLY MEASURED 2026-07-18: 14.0 cm forward,
+                     # 9.1 cm left of the base rotation axis. The 9.1 =
+                     # 3.5 squares x 2.6 cm confirms the board is centered
+                     # on the robot's forward axis (d/e boundary).
 square: 0.026        # square size, meters — ruler-check the print! If a
                      # printed square isn't 26 mm, put the measured size here.
 yaw_deg: -90.0       # file direction a->h: 0 = +x (away), 90 = +y (left)
