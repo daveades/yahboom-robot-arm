@@ -63,6 +63,7 @@ class BoardMotion:
         self.carry_z = args.carry_z
         self.approach_dz = 0.035   # tilt-locked descent starts here
         self.pick_tilt = args.pick_tilt
+        self.pick_forward = args.pick_forward
         # Fingertip grasp point to the bottom of a held piece; scales the
         # place correction for pick/place tilt mismatch. If pieces still
         # land off-center radially on cross-rank moves, tune this.
@@ -128,6 +129,13 @@ class BoardMotion:
         """Pick at from_xy, place at to_xy, traversing at carry height."""
         fx, fy = from_xy
         tx, ty = to_xy
+        # Overshoot the pick slightly along the reach direction so the
+        # claw extends beyond the piece and wraps it, instead of its
+        # fingertips catching the near edge. Pick only - drops land
+        # where commanded.
+        b = math.atan2(fy, fx)
+        fx += self.pick_forward * math.cos(b)
+        fy += self.pick_forward * math.sin(b)
         cz = self._carry_height(from_xy, to_xy)
         az = self.grasp_z + self.approach_dz   # just above the piece tops
         ft = self._column_tilt(fx, fy)         # locked pick-column tilt
@@ -363,6 +371,10 @@ def main() -> int:
                              "pick/place columns; each column keeps one "
                              "pitch, deviating only where the geometry "
                              "demands (default 25)")
+    parser.add_argument("--pick-forward", type=float, default=0.002,
+                        help="pick overshoot along the reach direction in "
+                             "meters, so the claw extends beyond the piece "
+                             "(default 0.002)")
     parser.add_argument("--discard", nargs=2, type=float, default=None,
                         metavar=("X", "Y"),
                         help="captured-piece drop point in base frame "
