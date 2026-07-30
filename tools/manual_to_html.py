@@ -215,29 +215,20 @@ CSS = """
 @page {
   size: A4;
   margin: 20mm 18mm 18mm 18mm;
-  @bottom-center { content: counter(page); font: 9pt Georgia, serif;
-                   color: #666; }
+  @bottom-center { content: counter(page); font: 9pt Georgia, serif; }
 }
 @page :first { margin: 0; @bottom-center { content: none; } }
 
 * { box-sizing: border-box; }
-html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 body {
   font: 10.5pt/1.5 Georgia, "DejaVu Serif", "Liberation Serif", serif;
-  color: #1a1a1a; margin: 0; hyphens: none;
+  color: #000; margin: 0; hyphens: none;
 }
 
 /* ---- cover ---- */
-.cover {
-  break-after: page; height: 297mm; padding: 55mm 22mm 22mm;
-  border-top: 10mm solid #1f3a5f;
-}
-.cover h1 { font-size: 30pt; line-height: 1.15; margin: 0 0 6mm;
-            border: 0; color: #1f3a5f; }
-.cover .sub { font-size: 12.5pt; color: #444; max-width: 130mm;
-              line-height: 1.5; }
-.cover .meta { margin-top: 30mm; font-size: 9.5pt; color: #666;
-               border-top: 0.4pt solid #bbb; padding-top: 3mm; }
+.cover { break-after: page; height: 297mm; padding: 60mm 22mm 22mm; }
+.cover h1 { font-size: 28pt; line-height: 1.15; margin: 0 0 6mm; border: 0; }
+.cover .sub { font-size: 12pt; max-width: 130mm; line-height: 1.5; }
 
 /* ---- contents ---- */
 .contents { break-after: page; }
@@ -246,18 +237,17 @@ body {
 /* ---- headings ---- */
 h1 {
   break-before: page; break-after: avoid;
-  font-size: 19pt; color: #1f3a5f; margin: 0 0 6mm;
-  padding-bottom: 2.5mm; border-bottom: 1.2pt solid #1f3a5f;
+  font-size: 18pt; margin: 0 0 6mm;
+  padding-bottom: 2.5mm; border-bottom: 1pt solid #000;
 }
-h2 { break-after: avoid; font-size: 13pt; color: #23486e;
-     margin: 7mm 0 2.5mm; }
-h3 { break-after: avoid; font-size: 11pt; color: #333;
-     margin: 5mm 0 2mm; font-style: italic; }
+h2 { break-after: avoid; font-size: 13pt; margin: 7mm 0 2.5mm; }
+h3 { break-after: avoid; font-size: 11pt; margin: 5mm 0 2mm;
+     font-style: italic; }
 h1 + h2, h2 + h3 { margin-top: 3mm; }
 
 p, li { orphans: 3; widows: 3; }
 p { margin: 0 0 2.6mm; text-align: justify; }
-a { color: #12507d; text-decoration: none; }
+a { color: inherit; text-decoration: none; }
 
 /* ---- lists ---- */
 ul, ol { margin: 0 0 2.6mm; padding-left: 6.5mm; }
@@ -269,15 +259,13 @@ li.task { list-style: none; margin-left: -5mm; }
 pre {
   break-inside: avoid;
   font: 8pt/1.42 "DejaVu Sans Mono", "Liberation Mono", Consolas, monospace;
-  background: #f5f6f8; border: 0.4pt solid #d9dde3; border-left: 1.2mm solid #1f3a5f;
-  padding: 2.4mm 3mm; margin: 0 0 3mm; border-radius: 0.8mm;
+  border: 0.4pt solid #999; padding: 2.4mm 3mm; margin: 0 0 3mm;
   white-space: pre-wrap; overflow-wrap: break-word;
 }
-pre code { font: inherit; background: none; border: 0; padding: 0; }
+pre code { font: inherit; padding: 0; }
 code {
   font: 0.88em "DejaVu Sans Mono", "Liberation Mono", Consolas, monospace;
-  background: #eef0f3; border: 0.3pt solid #dfe3e8;
-  padding: 0 0.6mm; border-radius: 0.6mm; overflow-wrap: break-word;
+  overflow-wrap: break-word;
 }
 
 /* ---- tables ---- */
@@ -287,23 +275,19 @@ table {
 }
 thead { display: table-header-group; }
 tr { break-inside: avoid; break-after: auto; }
-th, td { border: 0.4pt solid #ccd2da; padding: 1.5mm 2mm;
+th, td { border: 0.4pt solid #999; padding: 1.5mm 2mm;
          text-align: left; vertical-align: top; }
-th { background: #1f3a5f; color: #fff; font-weight: bold; }
-tbody tr:nth-child(even) { background: #f5f6f8; }
-td code, th code { background: none; border: 0; padding: 0; }
+th { font-weight: bold; border-bottom-width: 0.8pt; }
 .contents table { font-size: 10pt; }
 .contents th:first-child, .contents td:first-child {
   width: 12mm; text-align: center; }
 
 /* ---- callouts ---- */
 blockquote {
-  break-inside: avoid; margin: 0 0 3.5mm; padding: 2.5mm 3mm;
-  background: #fdf6e3; border: 0.4pt solid #e8dcb8;
-  border-left: 1.2mm solid #c9a227; border-radius: 0.8mm;
+  break-inside: avoid; margin: 0 0 3.5mm; padding: 0 0 0 4mm;
+  border-left: 0.8pt solid #999;
 }
 blockquote > :last-child { margin-bottom: 0; }
-blockquote pre { background: #fff; }
 """
 
 
@@ -328,7 +312,6 @@ def build(md_path, out_path):
 <section class="cover">
   <h1>%s</h1>
   <div class="sub">%s</div>
-  <div class="meta">Yahboom DOFBOT &middot; ROS&nbsp;2 Humble &middot; A4 edition</div>
 </section>
 <section class="contents">%s</section>
 %s
