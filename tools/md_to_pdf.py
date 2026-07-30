@@ -1,20 +1,26 @@
 #!/usr/bin/env python3
-"""Render docs/user_manual.md as a print-ready A4 HTML document.
+"""Render a markdown file as a print-ready A4 document.
 
-The output is one self-contained file with no external assets, laid out for
-paper rather than a screen: a cover page, the contents on its own page, and
-every numbered section starting on a fresh page.
+Output is one self-contained HTML file with no external assets, laid out for
+paper rather than a screen: a cover page carrying the title and the opening
+prose, the contents on their own page when the document has a contents
+section, and a page break before each top-level heading.
 
-    python3 tools/manual_to_html.py             # -> docs/user_manual.html
-    python3 tools/manual_to_html.py --pdf       # -> ... and user_manual.pdf
+    python3 tools/md_to_pdf.py --pdf                     # the user manual
+    python3 tools/md_to_pdf.py --md README.md --pdf
+    python3 tools/md_to_pdf.py --md notes.md --no-cover --break-before none
+
+--break-before defaults to auto, which gives a page to each `#` heading, or
+to each `##` heading when the document has fewer than three `#` headings.
 
 --pdf drives a headless Chrome, including a Windows-side Chrome or Edge when
 running under WSL. Without one, open the HTML in any browser and print it:
 Ctrl+P, Destination "Save as PDF", Paper A4, Margins "Default", and turn
 "Headers and footers" off so the page numbers in the CSS are the only ones.
 
-Only the markdown the manual actually uses is supported: headings, fenced
-code, tables, nested lists, blockquotes, and inline code/bold/italic/links.
+Supported markdown: headings, fenced code, tables, nested and task lists,
+blockquotes, and inline code, bold, italic and links. Images, footnotes,
+reference links and raw HTML are not handled.
 """
 import argparse
 import html
@@ -229,6 +235,8 @@ body {
 .cover { break-after: page; height: 297mm; padding: 60mm 22mm 22mm; }
 .cover h1 { font-size: 28pt; line-height: 1.15; margin: 0 0 6mm; border: 0; }
 .cover .sub { font-size: 12pt; max-width: 130mm; line-height: 1.5; }
+.cover .sub p { margin: 0 0 4mm; text-align: left; }
+.cover .sub blockquote { margin: 5mm 0 0; font-size: 10.5pt; }
 
 /* ---- contents ---- */
 .contents { break-after: page; }
@@ -236,9 +244,11 @@ body {
 
 /* ---- headings ---- */
 h1 {
-  break-before: page; break-after: avoid;
-  font-size: 18pt; margin: 0 0 6mm;
+  break-after: avoid; font-size: 18pt; margin: 0 0 6mm;
   padding-bottom: 2.5mm; border-bottom: 1pt solid #000;
+}
+.cover h1, .doctitle, .contents h2, body > :first-child {
+  break-before: auto;
 }
 h2 { break-after: avoid; font-size: 13pt; margin: 7mm 0 2.5mm; }
 h3 { break-after: avoid; font-size: 11pt; margin: 5mm 0 2mm;
@@ -291,34 +301,73 @@ blockquote > :last-child { margin-bottom: 0; }
 """
 
 
-def build(md_path, out_path):
-    text = pathlib.Path(md_path).read_text(encoding='utf-8')
-    lines = text.split('\n')
+TOC_TITLE = re.compile(r'^#{1,3}\s+(table of )?contents\s*$', re.I)
 
-    # The markdown opens with the title, a lead paragraph, and the contents
-    # table. Those become the cover and the contents page; everything from
-    # the first numbered section onward is the body.
-    first = next(i for i, l in enumerate(lines) if re.match(r'^# \d+\. ', l))
-    front, body = lines[:first], lines[first:]
 
-    title = front[0].lstrip('# ').strip()
-    toc_start = next(i for i, l in enumerate(front) if l.startswith('## '))
-    lead = parse(front[1:toc_start])
-    contents = parse(front[toc_start:])
+def split_front(lines):
+    """(title, lead, contents, body) for any document.
 
-    doc = """<!doctype html>
-<html lang="en"><head><meta charset="utf-8">
-<title>%s</title><style>%s</style></head><body>
-<section class="cover">
-  <h1>%s</h1>
-  <div class="sub">%s</div>
-</section>
-<section class="contents">%s</section>
-%s
-</body></html>
-""" % (html.escape(title), CSS, html.escape(title),
-       lead.replace('<p>', '').replace('</p>', '<br><br>').rstrip('<br>'),
-       contents, parse(body))
+    The title is the first top-level heading, the lead is whatever prose
+    follows it, and a "Contents" section, if the document has one, is kept
+    aside for its own page. Any of the three may come back empty.
+    """
+    start = next((i for i, l in enumerate(lines) if l.startswith('# ')), None)
+    if start is None:
+        return '', [], [], lines                     # no title: all body
+
+    title = lines[start][2:].strip()
+    rest = lines[start + 1:]
+
+    nxt = next((i for i, l in enumerate(rest) if l.startswith('#')), len(rest))
+    lead, rest = rest[:nxt], rest[nxt:]
+
+    contents = []
+    if rest and TOC_TITLE.match(rest[0]):
+        end = next((i for i, l in enumerate(rest[1:], 1) if l.startswith('#')),
+                   len(rest))
+        contents, rest = rest[:end], rest[end:]
+    return title, lead, contents, rest
+
+
+def pick_break_level(body):
+    """Which heading level gets a page to itself.
+
+    Breaking on a level used once, or not at all, would produce one enormous
+    page, so take the shallowest level used at least three times.
+    """
+    for level in (1, 2):
+        pat = re.compile(r'^#{%d} ' % level)
+        if sum(1 for l in body if pat.match(l)) >= 3:
+            return 'h%d' % level
+    return 'none'
+
+
+def build(md_path, out_path, cover=True, break_before='auto'):
+    lines = pathlib.Path(md_path).read_text(encoding='utf-8').split('\n')
+    title, lead, contents, body = split_front(lines)
+
+    if break_before == 'auto':
+        break_before = pick_break_level(body)
+    rule = ('%s { break-before: page; }' % break_before
+            if break_before != 'none' else '')
+
+    parts = []
+    if cover and title:
+        parts.append('<section class="cover"><h1>%s</h1><div class="sub">%s'
+                     '</div></section>' % (html.escape(title), parse(lead)))
+    elif title:
+        parts.append('<h1 class="doctitle">%s</h1>%s'
+                     % (html.escape(title), parse(lead)))
+
+    if contents:
+        parts.append('<section class="contents">%s</section>' % parse(contents))
+    parts.append(parse(body))
+
+    doc = ('<!doctype html>\n<html lang="en"><head><meta charset="utf-8">\n'
+           '<title>%s</title><style>%s\n%s</style></head><body>\n%s\n'
+           '</body></html>\n'
+           % (html.escape(title or pathlib.Path(md_path).stem), CSS, rule,
+              '\n'.join(parts)))
 
     pathlib.Path(out_path).write_text(doc, encoding='utf-8')
     return doc
@@ -375,20 +424,31 @@ def to_pdf(html_path, pdf_path):
 def main():
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument('--md', default='docs/user_manual.md')
-    ap.add_argument('--out', default='docs/user_manual.html')
-    ap.add_argument('--pdf', nargs='?', const='docs/user_manual.pdf',
-                    help="also render a PDF (default docs/user_manual.pdf)")
+    ap.add_argument('--md', default='docs/user_manual.md',
+                    help="markdown to render (default the user manual)")
+    ap.add_argument('--out', help="HTML output (default: alongside --md)")
+    ap.add_argument('--pdf', nargs='?', const=True,
+                    help="also render a PDF (default: alongside --md)")
+    ap.add_argument('--no-cover', action='store_true',
+                    help="skip the cover page and run the title inline")
+    ap.add_argument('--break-before', default='auto',
+                    choices=('auto', 'h1', 'h2', 'none'),
+                    help="heading level that starts a new page (default auto)")
     args = ap.parse_args()
 
-    if not pathlib.Path(args.md).exists():
+    md = pathlib.Path(args.md)
+    if not md.exists():
         sys.exit("%s not found - run this from the repo root." % args.md)
-    doc = build(args.md, args.out)
-    print("wrote %s (%.0f KB)" % (args.out, len(doc) / 1024))
+    out = args.out or str(md.with_suffix('.html'))
+    doc = build(args.md, out, cover=not args.no_cover,
+                break_before=args.break_before)
+    print("wrote %s (%.0f KB)" % (out, len(doc) / 1024))
 
-    if args.pdf and to_pdf(args.out, args.pdf):
-        kb = pathlib.Path(args.pdf).stat().st_size / 1024
-        print("wrote %s (%.0f KB)" % (args.pdf, kb))
+    if args.pdf:
+        pdf = str(md.with_suffix('.pdf')) if args.pdf is True else args.pdf
+        if to_pdf(out, pdf):
+            print("wrote %s (%.0f KB)"
+                  % (pdf, pathlib.Path(pdf).stat().st_size / 1024))
     return 0
 
 

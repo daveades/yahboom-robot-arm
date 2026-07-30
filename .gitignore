@@ -42,5 +42,7 @@ yolov8n.pt
 /board_a3.png
 /board_a3.pdf
 
-# Generated from docs/user_manual.md by tools/manual_to_html.py
+# Generated from docs/user_manual.md by tools/md_to_pdf.py
 /docs/user_manual.html
+/docs/demo_runbook.html
+/docs/private/*.html
