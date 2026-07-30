@@ -39,12 +39,12 @@ in order the first time. Every section is numbered so you can be told
 A 5-joint robot arm with a gripper that you can control four different ways,
 each one a step up from the last:
 
-1. **By hand, in simulation** — drag a marker in a 3D viewer, the virtual arm
-   follows (§6).
-2. **By keyboard** — press a key, the real arm nudges (§9).
-3. **By plan** — you give a goal, software works out the path, the arm
+1. **By hand, in simulation.** Drag a marker in a 3D viewer and the virtual
+   arm follows (§6).
+2. **By keyboard.** Press a key and the real arm nudges (§9).
+3. **By plan.** You give a goal, software works out the path, and the arm
    executes it (§10).
-4. **By itself** — a camera sees an object, the arm goes and picks it up
+4. **By itself.** A camera sees an object and the arm goes and picks it up
    (§11), or plays a game of chess against you (§12).
 
 ## 1.2 What you need
@@ -57,8 +57,8 @@ each one a step up from the last:
 
 **Hardware (to run anything physical)**
 
-- A Yahboom DOFBOT arm with its **DC power supply** — USB power alone
-  cannot drive the servos, this is not optional
+- A Yahboom DOFBOT arm with its **DC power supply**. USB power alone cannot
+  drive the servos, so this is not optional
 - The USB serial cable (a CH340 adapter, USB vendor:product `1a86:7523`)
 - Optionally a Raspberry Pi 4 (§3) if you want the arm controlled by a
   small computer instead of your laptop
@@ -66,7 +66,7 @@ each one a step up from the last:
 
 ## 1.3 The two ways this project can be wired
 
-**Setup A — everything on one machine.** Your laptop runs everything and
+**Setup A: everything on one machine.** Your laptop runs everything and
 the arm plugs into your laptop's USB. Simplest. This is the setup the
 project was actually built and tested on.
 
@@ -75,8 +75,8 @@ project was actually built and tested on.
   driver + MoveIt + RViz + tools
 ```
 
-**Setup B — split across a Pi.** The Raspberry Pi sits next to the arm and
-runs the driver; your laptop runs the heavy graphical stuff and talks to
+**Setup B: split across a Pi.** The Raspberry Pi sits next to the arm and
+runs the driver. Your laptop runs the heavy graphical stuff and talks to
 the Pi over WiFi. This is §3 and §4.
 
 ```
@@ -93,10 +93,10 @@ the Pi over WiFi. This is §3 and §4.
 
 | Document | What it is for |
 |---|---|
-| this manual | the full course — read it in order the first time |
+| this manual | the full course, read it in order the first time |
 | `docs/demo_runbook.md` | cold-machine checklist for the chess demo (§12) |
 
-## 1.5 Safety rules — read these once, follow them always
+## 1.5 Safety rules, read once and follow always
 
 1. **Pose the arm roughly straight up before starting the driver.** The
    driver has no way to read where the servos actually are (§7.10). It
@@ -105,7 +105,7 @@ the Pi over WiFi. This is §3 and §4.
 2. **Keep the workspace clear.** There is no obstacle model. Nothing in the
    software knows your desk, your coffee, or your hand exists. A planned
    path will happily go straight through all three.
-3. **First motions at 10–20% speed.** In RViz there is a Velocity Scaling
+3. **First motions at 10 to 20% speed.** In RViz there is a Velocity Scaling
    box. Use it.
 4. **Keep a hand on the power switch.** It is the only emergency stop
    this robot has.
@@ -123,11 +123,11 @@ the Pi over WiFi. This is §3 and §4.
 | macOS, or other Linux | §2.4 (simulation only) |
 
 The project targets **ROS 2 Humble**, which officially pairs with Ubuntu
-22.04. Do not substitute another Ubuntu version — the ROS packages simply
-do not exist for it, and mixing versions is the single most common way
+22.04. Do not substitute another Ubuntu version. The ROS packages simply do
+not exist for it, and mixing versions is the single most common way
 students lose a day.
 
-## 2.2 Path A — Ubuntu 22.04
+## 2.2 Path A: Ubuntu 22.04
 
 ### 2.2.1 Add the ROS 2 software source
 
@@ -149,8 +149,8 @@ sudo apt update
 
 The key file proves the packages really come from the ROS project. If the
 `curl` line fails, check the current instructions at
-[docs.ros.org](https://docs.ros.org/en/humble/Installation.html) — this is
-the one step that occasionally changes.
+[docs.ros.org](https://docs.ros.org/en/humble/Installation.html). This is the
+one step that occasionally changes.
 
 ### 2.2.2 Install ROS 2 and the project's dependencies
 
@@ -169,7 +169,7 @@ What each piece is for:
 | Package | Why this project needs it |
 |---|---|
 | `ros-humble-desktop` | ROS 2 itself, plus RViz (the 3D viewer) |
-| `ros-humble-moveit` | motion planning — works out how to get from A to B |
+| `ros-humble-moveit` | motion planning, works out how to get from A to B |
 | `ros2-control` / `ros2-controllers` | only used by the **simulation** (§6.3) |
 | `v4l2-camera`, `v4l-utils` | USB camera input (§11) |
 | `rqt-image-view` | a window to look at camera images |
@@ -204,7 +204,7 @@ git clone <this-repo-url> yahboom-robot-arm
 
 Now go to §2.5.
 
-## 2.3 Path B — Windows 11 + WSL2 + Docker
+## 2.3 Path B: Windows 11 + WSL2 + Docker
 
 This is what the project was developed on. Windows runs the desktop, WSL2
 runs a real Linux kernel inside Windows, and Docker runs a clean Ubuntu
@@ -273,7 +273,7 @@ apt update && apt install -y \
 pip3 install chess
 ```
 
-### 2.3.4 Pin the Python packages — do not skip this
+### 2.3.4 Pin the Python packages, do not skip this
 
 ```bash
 printf 'numpy<2\nopencv-python<4.11\nsetuptools<60\n' > /root/pip-constraints.txt
@@ -314,7 +314,7 @@ docker commit dofbot dofbot:setup
 
 Now the whole configured environment is a saved image. If you ever wreck
 the container, you can recreate it from this snapshot instead of redoing
-§2.3.3–§2.3.5.
+§2.3.3 to §2.3.5.
 
 ### 2.3.7 What this puts on your Windows machine
 
@@ -330,15 +330,15 @@ The complete Windows-side footprint is four items, all reversible:
 No driver is permanently replaced: while a device is *attached* to WSL it
 disappears from Windows, and comes back on detach or unplug.
 
-## 2.4 Path C — macOS or other Linux, via Docker
+## 2.4 Path C: macOS or other Linux, via Docker
 
 Use the §2.3.2 command minus the WSLg-specific mounts, and provide display
-access your own way (Linux: mount `/tmp/.X11-unix` and run `xhost +local:`;
-macOS: XQuartz, or skip RViz entirely).
+access your own way. On Linux, mount `/tmp/.X11-unix` and run
+`xhost +local:`. On macOS, use XQuartz or skip RViz entirely.
 
 **Hard limit:** Docker on macOS and on Windows-without-WSL cannot pass USB
-devices through at all. You can do §5, §6, §7 and §10 — simulation and
-code — but not real hardware. For real hardware you need a Linux host or
+devices through at all. You can do the simulation and code sections, §5, §6,
+§7 and §10, but not real hardware. For real hardware you need a Linux host or
 the Raspberry Pi of §3.
 
 ## 2.5 Install the vision dependencies (only needed for §11)
@@ -389,15 +389,15 @@ If all three print without a traceback, installation is done. Skip ahead to
 
 # 3. Setting up the Raspberry Pi
 
-This is Setup B from §1.3. The repo's helper scripts — `scripts/driver.sh`
-and friends — expect the Docker container of §2.3, so on the Pi you run the
-launch files directly instead. Everything else is the same.
+This is Setup B from §1.3. The repo's helper scripts such as
+`scripts/driver.sh` expect the Docker container of §2.3, so on the Pi you
+run the launch files directly instead. Everything else is the same.
 
 ## 3.1 What the Pi is actually for
 
 The Pi does one job: sit next to the arm, hold the USB cable, and run the
-**driver** — the program that turns joint angles into servo bytes. It does
-not plan motions and it does not run RViz; a Pi is too slow for comfort at
+**driver**, the program that turns joint angles into servo bytes. It does not
+plan motions and it does not run RViz. A Pi is too slow for comfort at
 both, and neither needs to be near the robot.
 
 So the split is:
@@ -416,7 +416,7 @@ So the split is:
 
    > It must be **22.04** and it must be **64-bit**. ROS 2 Humble has no
    > packages for other versions, and the 32-bit build will not install.
-   > Server, not Desktop — you do not need a GUI on the Pi and it wastes
+   > Server, not Desktop. You do not need a GUI on the Pi and it wastes
    > memory the driver could use.
 
 4. Click the gear/settings icon **before writing** and set:
@@ -445,7 +445,7 @@ sudo apt update && sudo apt upgrade -y
 
 ## 3.4 Install ROS 2 on the Pi
 
-Exactly the steps from §2.2.1, then a **smaller** package set — there is no
+Exactly the steps from §2.2.1, then a **smaller** package set. There is no
 screen on the Pi, so no RViz:
 
 ```bash
@@ -464,7 +464,7 @@ sudo usermod -aG dialout $USER
 `ros-humble-ros-base` is ROS without the graphical tools.
 `moveit-configs-utils` looks like it should not be needed, but the
 hardware launch file uses it to build the robot description from the URDF
-(§7.2) — install it or `control.launch.py` will fail on import. If apt
+(§7.2). Install it or `control.launch.py` will fail on import. If apt
 cannot find it, `sudo apt install ros-humble-moveit` pulls it in along with
 a lot you will not use.
 
@@ -483,11 +483,11 @@ rsync -av --delete \
 ```
 
 Excluding `build/`, `install/` and `log/` matters: those contain compiled
-output for **your laptop's** architecture. The Pi is ARM; it must compile
+output for **your laptop's** architecture. The Pi is ARM, so it must compile
 its own. §5.2 explains those folders.
 
 Re-run that same command any time you change code on the laptop. Make it an
-alias — you will run it a lot.
+alias, because you will run it a lot.
 
 ## 3.6 Build on the Pi
 
@@ -516,21 +516,21 @@ supply** to the wall. Then:
 ls /dev/ttyUSB*
 ```
 
-You want `/dev/ttyUSB0`. If nothing appears, check `dmesg | tail` — you
+You want `/dev/ttyUSB0`. If nothing appears, check `dmesg | tail`. You
 should see the `ch341` driver claiming the device. No line at all means a
 cable or power problem, not software.
 
 ## 3.8 Run the driver on the Pi
 
-Press the **K1 button** on the arm's expansion board first — that centers
-all the servos, which is the pose the driver assumes (§1.5, rule 1). Then:
+Press the **K1 button** on the arm's expansion board first. That centers all
+the servos, which is the pose the driver assumes (§1.5, rule 1). Then:
 
 ```bash
 ros2 launch dofbot_bringup control.launch.py port:=/dev/ttyUSB0
 ```
 
 Look for `Connected to /dev/ttyUSB0` in the output. **No such line means
-the driver is deaf** — every command will be silently dropped while ROS
+the driver is deaf.** Every command will be silently dropped while ROS
 cheerfully reports success. This is the single most confusing failure mode
 in the whole project, so check for that line every time.
 
@@ -543,8 +543,8 @@ Leave this running. Now set up the network so your laptop can reach it.
 ## 4.1 The one thing to understand first
 
 ROS 2 has no central server. There is no "master" to point at. Instead,
-every node **shouts on the local network** — "I publish `/joint_states`,
-does anyone want it?" — and any node that wants it answers directly. This
+every node **shouts on the local network**, "I publish `/joint_states`, does
+anyone want it?", and any node that wants it answers directly. This
 is called **DDS discovery**.
 
 The practical consequence: two machines find each other automatically, but
@@ -576,7 +576,7 @@ source ~/.bashrc
 default it to 1, which silently confines everything to one computer.
 
 > If you use the Docker container, put these in the container's `.bashrc`
-> too — a variable set in WSL does not reach inside the container.
+> too. A variable set in WSL does not reach inside the container.
 
 Verify on each machine:
 
@@ -599,7 +599,7 @@ ping dofbot-pi.local
 ping <your-laptop-ip>
 ```
 
-If ping fails in either direction, stop — fix that first. Common causes:
+If ping fails in either direction, stop and fix that first. Common causes:
 the two devices are on different WiFi bands that the router isolates, a
 "guest network" that blocks device-to-device traffic, or a VPN on the
 laptop capturing all traffic.
@@ -617,7 +617,7 @@ ros2 multicast send
 ```
 
 The receiving side should print the message. If ping works but multicast
-does not, your network blocks multicast — see §4.7.
+does not, your network blocks multicast. See §4.7.
 
 ## 4.4 Special case: WSL2 on the laptop
 
@@ -643,7 +643,7 @@ Then from PowerShell:
 wsl --shutdown
 ```
 
-Reopen WSL. Check with `ip addr` — WSL should now show your real LAN
+Reopen WSL. Check with `ip addr`. WSL should now show your real LAN
 address (e.g. `192.168.1.x`) instead of a `172.x` NAT address.
 
 You may also need to allow inbound traffic to the WSL virtual machine, in
@@ -691,31 +691,31 @@ ros2 launch dofbot_bringup moveit.launch.py
 
 MoveIt on the laptop sends trajectory goals to the action servers that the
 driver on the Pi provides (§7.3). Neither side is configured with the
-other's address — discovery handles it.
+other's address, because discovery handles it.
 
 ## 4.7 Network problems and what they mean
 
 | Symptom | Cause and fix |
 |---|---|
 | `ros2 node list` empty on both machines | `ROS_DOMAIN_ID` mismatch, or `ROS_LOCALHOST_ONLY=1` |
-| Each machine sees only its own nodes | discovery blocked — WSL NAT (§4.4), VPN, or firewall |
+| Each machine sees only its own nodes | discovery blocked by WSL NAT (§4.4), a VPN, or a firewall |
 | Ping works, multicast does not | some routers/APs block multicast. Switch both to `export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp` (install `ros-humble-rmw-cyclonedds-cpp` on both) and configure a peer list, or use a wired switch |
 | Topics appear, then vanish | WiFi power-saving on the Pi. `sudo iw dev wlan0 set power_save off` |
 | Everything doubles up / weird conflicts | a classmate on your domain ID. Change it |
-| Laggy or stuttering motion | WiFi. The driver is timing-sensitive; use Ethernet for the Pi if you can |
+| Laggy or stuttering motion | WiFi. The driver is timing-sensitive, so use Ethernet for the Pi if you can |
 
 ---
 
 # 5. ROS workspaces, explained plainly
 
-No robot needed for this section. Read it before §6 — it will save you a
-lot of confusion later.
+No robot needed for this section. Read it before §6. It will save you a lot
+of confusion later.
 
 ## 5.1 What a workspace actually is
 
 A workspace is **just a folder** where you keep robot code and where the
 build tool puts the compiled result. That's it. There is nothing magic
-about it. ROS calls it a workspace; you can think of it as "my project
+about it. ROS calls it a workspace. You can think of it as "my project
 folder".
 
 This project's workspace is:
@@ -726,8 +726,8 @@ yahboom-robot-arm/dofbot_ros2_ws/
 
 Note that it is *inside* the repo, not the repo itself. The repo also has
 `tools/`, `scripts/`, `config/` and `docs/` which are **not** part of the
-workspace — they are plain Python scripts and shell scripts you run
-directly, no building involved.
+workspace. They are plain Python scripts and shell scripts you run directly,
+with no building involved.
 
 ## 5.2 The four folders inside a workspace
 
@@ -748,7 +748,7 @@ That explains a beginner mystery: "I changed my file but nothing changed
 when I ran it." You changed `src/`, but you ran `install/`. You have to
 build (or use the trick in §5.5).
 
-`build/`, `install/` and `log/` are disposable. Delete them any time; a
+`build/`, `install/` and `log/` are disposable. Delete them any time. A
 rebuild recreates them. They are in `.gitignore` for exactly that reason,
 and this is why you exclude them when copying to the Pi (§3.5).
 
@@ -792,13 +792,13 @@ dofbot_ros2_ws/src/
 ├── dofbot_description/    the robot's shape: URDF, 3D meshes
 ├── dofbot_driver/         talks to the servos over USB serial
 ├── dofbot_moveit_config/  settings for the motion planner
-├── dofbot_bringup/        launch files — the things you actually run
+├── dofbot_bringup/        launch files, the things you actually run
 └── dofbot_vision/         camera, YOLO detection, picking
 ```
 
 Why split it up? So each part can be replaced without touching the others.
 When the physical camera path stopped working, only `dofbot_vision`'s
-camera node was swapped — nothing downstream noticed or cared.
+camera node was swapped and nothing downstream noticed or cared.
 
 ## 5.5 Building with colcon
 
@@ -813,7 +813,7 @@ source install/setup.bash
 **What `--symlink-install` does, and why you want it.** Normally the build
 *copies* files into `install/`. With this flag it makes shortcuts
 (symlinks) instead. So when you edit a Python file or a launch file, the
-change takes effect immediately — no rebuild needed. You still must
+change takes effect immediately, with no rebuild needed. You still must
 rebuild after adding a new file, changing `package.xml`, or touching C++.
 
 Other flags you will use:
@@ -851,7 +851,7 @@ ros-build --packages-select dofbot_vision
 # 6. Building the project and running the simulation
 
 This is the checkpoint. **Do not connect the real arm until this section
-works.** Simulation catches install problems safely; hardware catches them
+works.** Simulation catches install problems safely. Hardware catches them
 by hitting your desk.
 
 ## 6.1 Build
@@ -895,13 +895,13 @@ Understanding this makes RViz much less mysterious. Six programs launched:
 |---|---|
 | `robot_state_publisher` | reads the URDF, works out where every link is given the joint angles, and broadcasts those positions so RViz can draw them |
 | `move_group` | MoveIt's brain: given a goal, finds a collision-free path |
-| `ros2_control_node` | the **fake** hardware — pretends to be servos, and reports back exactly whatever it was told. This is what makes simulation work with no robot |
+| `ros2_control_node` | the **fake** hardware. It pretends to be servos and reports back exactly whatever it was told, which is what makes simulation work with no robot |
 | `arm_controller` | takes a planned path and feeds it out over time |
 | `gripper_controller` | the same, for the claw |
 | `rviz2` | the 3D window |
 
 Note the fake hardware: in simulation, ros2_control is used. On **real**
-hardware it is not — the driver replaces the whole bottom half (§7.9). That
+hardware it is not. The driver replaces the whole bottom half (§7.9). That
 difference is the single most important architectural fact in this project.
 
 ## 6.4 Your first planned motion
@@ -916,7 +916,7 @@ In the RViz **MotionPlanning** panel, **Planning** tab:
 3. Click **Plan**. An animated preview of the path plays.
 4. Click **Execute**. The virtual arm moves.
 
-**If the virtual arm moves, your environment is correct** — that is the
+**If the virtual arm moves, your environment is correct.** That is the
 checkpoint passed.
 
 ### 6.4.1 Why dragging the ring does nothing useful
@@ -924,17 +924,17 @@ checkpoint passed.
 The orange marker has position arrows and rotation rings. Only the arrows
 work. The arm has 5 joints, and positioning a gripper in space *with a
 chosen orientation* needs 6. So MoveIt here is configured
-`position_only_ik: true` — "get the gripper to that point, and take
-whatever angle you get."
+`position_only_ik: true`, meaning "get the gripper to that point, and take
+whatever angle you get".
 
-This is not a bug or a limitation to fix; it is what a 5-joint arm is. It
+This is not a bug or a limitation to fix. It is what a 5-joint arm is. It
 matters later: §12 works entirely around choosing the gripper's approach
 angle deliberately, because MoveIt will not do it for you.
 
 ## 6.5 Speed
 
 Default speed scaling is 0.5 of the joint limits. Two dropdowns in the
-Planning tab — **Velocity Scaling** and **Accel Scaling** — change it per
+Planning tab, **Velocity Scaling** and **Accel Scaling**, change it per
 plan. Set them to 0.1 before your first real-hardware motion.
 
 The defaults live in
@@ -996,9 +996,9 @@ and the arm's real dimensions. The numbers in the tools' own kinematics
 (§7.6) were taken straight out of it.
 
 **Angles are in radians everywhere in ROS.** 90° = 1.5708 rad. Get used to
-it; the driver is the only place degrees appear.
+it. The driver is the only place degrees appear.
 
-## 7.3 Step 2: the command — what a trajectory is
+## 7.3 Step 2: the command, what a trajectory is
 
 Whether it comes from MoveIt or from `tools/arm_client.py`, the arm is
 commanded with a **FollowJointTrajectory action goal**. Stripped down, it
@@ -1020,8 +1020,8 @@ finishes, and can be cancelled.
 The driver provides two of these action servers, and this is what MoveIt
 connects to:
 
-- `/arm_controller/follow_joint_trajectory` — the five arm joints
-- `/gripper_controller/follow_joint_trajectory` — the claw
+- `/arm_controller/follow_joint_trajectory` for the five arm joints
+- `/gripper_controller/follow_joint_trajectory` for the claw
 
 ## 7.4 Step 3: the driver throws most of the waypoints away
 
@@ -1034,9 +1034,9 @@ and the arm stutters and lags.
 
 So `driver_node.py` downsamples. The `min_segment_ms` parameter (default
 **3000 ms**) means: keep waypoints at least 3 seconds apart, plus always
-the final one. Since a typical motion is 2–3 seconds, in practice **only
-the last point of each motion survives** — one serial command per motion,
-letting the firmware interpolate the whole thing. That is exactly how
+the final one. Since a typical motion is 2 to 3 seconds, in practice **only
+the last point of each motion survives**. That is one serial command per
+motion, letting the firmware interpolate the whole thing. That is exactly how
 Yahboom's own demo code drives this board.
 
 You will see it in the driver's log:
@@ -1051,7 +1051,7 @@ Trajectory goal: 5 joints (arm_joint1, ...), 30 points over 2.00s -> 1 segments
 
 `_rad_to_driver_deg()` in `driver_node.py`.
 
-**Arm joints.** The URDF's zero is the arm straight up; the servo's centre
+**Arm joints.** The URDF's zero is the arm straight up, while the servo's centre
 is 90°:
 
 ```
@@ -1074,12 +1074,12 @@ So `-1.1 rad` → t = 0.2857 → **128.57°**.
 > `0.0` = wide open, `-1.54` = fully closed. More negative = tighter.
 > The chess tools use `-1.1` for open and `-1.42` for a grip.
 > (RViz renders the claw mirrored relative to this, so the driver
-> deliberately publishes a flipped value for display only — the commands
+> deliberately publishes a flipped value for display only. The commands
 > themselves are as described here.)
 
 ## 7.6 Where the joint angles come from: two different IK paths
 
-**Inverse kinematics (IK)** = "I want the gripper *there*; what angle does
+**Inverse kinematics (IK)** = "I want the gripper *there*, so what angle does
 each joint need?"
 
 This project has two answers:
@@ -1092,16 +1092,16 @@ This project has two answers:
 The tools stopped using MoveIt's solver for two concrete reasons:
 
 1. It positioned the **wrist frame**, not the fingertips. As the gripper
-   tilt changed with height, the actual touch point slid sideways — fatal
-   when you are trying to grab a chess piece 26 mm wide.
+   tilt changed with height, the actual touch point slid sideways. That is
+   fatal when you are trying to grab a chess piece 26 mm wide.
 2. It returned a **different solution every call** for the same target,
    because it starts from a random seed.
 
 `arm_client.py` solves the geometry directly for the **grasp point between
 the fingertips**, scanning gripper tilt from vertical outward and returning
 the most upright grip that works. Same input, same output, every time. The
-arm is treated as planar: joint 1 swings the whole plane around, joints 2–4
-work within it, joint 5 stays at zero.
+arm is treated as planar: joint 1 swings the whole plane around, joints 2
+to 4 work within it, joint 5 stays at zero.
 
 ## 7.7 Step 5: servo degrees → tick counts
 
@@ -1109,8 +1109,8 @@ Each servo wants a raw number, not degrees. `_servo_pos()`:
 
 | Servo | Formula | Note |
 |---|---|---|
-| 1, 6 | `(3100-900) * angle/180 + 900` | 900–3100 over 180° |
-| 2, 3, 4 | `(3100-900) * (180-angle)/180 + 900` | **inverted** — mounted facing the other way |
+| 1, 6 | `(3100-900) * angle/180 + 900` | 900 to 3100 over 180° |
+| 2, 3, 4 | `(3100-900) * (180-angle)/180 + 900` | **inverted**, mounted facing the other way |
 | 5 | `(3700-380) * angle/270 + 380` | 270° range, different limits |
 
 Example: servo 1 at 120° → `2200 × 120/180 + 900` = **2366**.
@@ -1123,13 +1123,14 @@ The packet format is:
 FF FC [len] [cmd] [payload ...] [checksum]
 ```
 
-- `FF FC` — fixed header. `FF` = start, `FC` = "this is for the arm board".
-- `len` — counts every byte from `len` itself through the checksum.
-- `cmd` — `0x1D` writes all six servos at once; `0x10 + id` writes one.
-- `payload` — for `0x1D`: six 16-bit positions (high byte first), then a
+- `FF FC` is the fixed header. `FF` starts the packet, `FC` says it is for
+  the arm board.
+- `len` counts every byte from `len` itself through the checksum.
+- `cmd` of `0x1D` writes all six servos at once. `0x10 + id` writes one.
+- `payload` for `0x1D` is six 16-bit positions, high byte first, then a
   16-bit duration in milliseconds.
-- `checksum` — sum of the bytes from `len` onward, kept to 8 bits
-  (`& 0xFF`). The board rejects a packet whose sum does not match.
+- `checksum` is the sum of the bytes from `len` onward, kept to 8 bits with
+  `& 0xFF`. The board rejects a packet whose sum does not match.
 
 ### 7.8.1 A complete worked example
 
@@ -1178,7 +1179,7 @@ mock hardware                     dofbot_driver
 RViz shows the result             real servos
 ```
 
-On hardware, `ros2_control` is **not used at all** — the driver serves the
+On hardware, `ros2_control` is **not used at all**. The driver serves the
 trajectory actions itself. `ros2_control` streams joint positions at 100 Hz,
 which over a serial link means a new command every 10 ms, each one
 restarting the servo's own ramp (§7.4). The arm pulses and lags. Handing the
@@ -1209,9 +1210,9 @@ Consequences you must plan around:
 ## 7.11 The shortcut command path
 
 The driver also subscribes to a `/target_joints` topic and moves to whatever
-`JointState` you publish there. It is there for quick one-off scripting —
-no action client, no trajectory to build. MoveIt does not use it, and it is
-ignored while a trajectory action is running. Prefer the actions for
+`JointState` you publish there. It is there for quick one-off scripting,
+with no action client and no trajectory to build. MoveIt does not use it,
+and it is ignored while a trajectory action is running. Prefer the actions for
 anything real.
 
 ---
@@ -1251,7 +1252,7 @@ scripts/usb.sh            # find, attach, and keep watching the device
 
 `scripts/usb.sh` also starts an **auto-attach watcher**, which matters:
 the CH340 adapter drops out on cable wiggles and power brownouts, and
-re-appears — sometimes as `/dev/ttyUSB1` instead of `ttyUSB0`. The watcher
+re-appears, sometimes as `/dev/ttyUSB1` instead of `ttyUSB0`. The watcher
 re-attaches it, and the driver picks up whatever `ttyUSB*` is present.
 
 Verify:
@@ -1260,7 +1261,7 @@ Verify:
 ls /dev/ttyUSB*
 ```
 
-## 8.3 Start the driver — terminal 1
+## 8.3 Start the driver in terminal 1
 
 ```bash
 docker exec -it dofbot bash
@@ -1273,7 +1274,7 @@ pose, and launches.
 
 **Watch for `Connected to /dev/ttyUSB0`.** No line, no arm.
 
-Leave this terminal open — it is your log. If the arm misbehaves, this is
+Leave this terminal open, because it is your log. If the arm misbehaves, this is
 the first place to look.
 
 Without the scripts, the equivalent is:
@@ -1291,14 +1292,14 @@ Useful parameters:
 | `max_speed_deg_s` | 120 | hardware speed cap, applied to everything |
 | `min_segment_ms` | 3000 | waypoint downsampling (§7.4) |
 
-## 8.4 Start MoveIt — terminal 2
+## 8.4 Start MoveIt in terminal 2
 
 ```bash
 docker exec -it dofbot bash
 scripts/moveit.sh              # add --no-rviz for headless
 ```
 
-## 8.5 Check the stack — terminal 3
+## 8.5 Check the stack in terminal 3
 
 ```bash
 scripts/status.sh
@@ -1315,8 +1316,8 @@ In RViz: set **Velocity Scaling to 0.1**, plan a *small* move, and Execute.
 Watch for: smooth motion, no USB errors in terminal 1, arm ends up roughly
 where the preview said. If all three hold, you are cleared for §9 onward.
 
-If the arm jumps violently, it did not start centered — power cycle, press
-K1, restart the driver.
+If the arm jumps violently, it did not start centered. Power cycle, press
+K1, and restart the driver.
 
 ---
 
@@ -1324,7 +1325,7 @@ K1, restart the driver.
 
 Teleop ("teleoperation") is direct human control: you press a key, the arm
 moves a little. It is the fastest way to build intuition for what the arm
-can and cannot physically do — and it is how you find the numbers you will
+can and cannot physically do, and it is how you find the numbers you will
 later put in config files.
 
 The tool is `tools/teleop_key.py`. It works against **either** the real
@@ -1341,7 +1342,7 @@ python3 tools/teleop_key.py
 ```
 
 It waits 4 seconds for the driver's startup sync (§7.10), prints the help
-and the current pose, and then listens for single keypresses — you do
+and the current pose, and then listens for single keypresses. You do
 **not** press Enter after each key.
 
 ## 9.2 The keys
@@ -1371,7 +1372,7 @@ That line is genuinely useful: it is telling you the joint angles **and**
 where the fingertips are in robot coordinates. Which brings us to the two
 modes.
 
-## 9.3 Joint mode — start here
+## 9.3 Joint mode, start here
 
 Each key moves **one motor**. There is no cleverness in between: press `k`
 and joint 2 rotates 5°. Nothing can be "unreachable", so nothing can fail.
@@ -1382,14 +1383,14 @@ Use joint mode to:
 - feel out the ±90° limits
 - get the arm out of an awkward pose
 
-## 9.4 Cartesian mode — think in space, not joints
+## 9.4 Cartesian mode, thinking in space rather than joints
 
-Press `m`. Now the keys move the **grasp point** — the spot between the
-open fingertips — through space:
+Press `m`. Now the keys move the **grasp point**, the spot between the open
+fingertips, through space:
 
-- `w` / `s` — away from / toward the robot's base (**x**)
-- `a` / `d` — to the robot's left / right (**y**)
-- `q` / `e` — up / down (**z**)
+- `w` and `s` move it away from and toward the robot's base (**x**)
+- `a` and `d` move it to the robot's left and right (**y**)
+- `q` and `e` move it up and down (**z**)
 
 Behind each keypress, the IK from §7.6 works out all five joint angles.
 This is the same code the chess and picking tools use, so if a spot is
@@ -1401,7 +1402,7 @@ When a target cannot be reached you get:
   !! (+0.280, +0.000, +0.160) is out of reach - stepping back
 ```
 
-and nothing moves. Nothing is broken — you asked for a point outside the
+and nothing moves. Nothing is broken. You asked for a point outside the
 arm's envelope. Come back with `s` and try lower.
 
 **Coordinate frame.** The origin is the base's rotation axis, at table
@@ -1423,7 +1424,7 @@ Teleop is how you measure the numbers other parts of the project need:
 ## 9.6 Safety notes specific to teleop
 
 - **Each keypress finishes before the next is read.** Anything typed while
-  the arm is moving is thrown away, deliberately — otherwise holding a key
+  the arm is moving is thrown away deliberately, because otherwise holding a key
   down would queue twenty moves and the arm would keep going long after you
   let go.
 - **Start with small steps.** The default is 5° / 10 mm. Press `-` a couple
@@ -1438,7 +1439,7 @@ Teleop is how you measure the numbers other parts of the project need:
 # 10. Checking trajectories in RViz before running for real
 
 The arm has no obstacle model, no force sensing, and no way to report that
-it hit something (§7.10). So the preview in RViz is not a nicety — it is
+it hit something (§7.10). So the preview in RViz is not a nicety. It is
 your only chance to catch a bad path before it happens.
 
 ## 10.1 The habit: Plan, look, then Execute
@@ -1473,8 +1474,8 @@ a glance. Without it, you have to catch the moment.
    whatever path is mathematically easy, which is sometimes a big arc
    through where your hand is.
 3. **Does the elbow flip?** Watch for the arm suddenly reconfiguring
-   mid-path. That is jerky and hard on the servos. Re-plan — you often get
-   a different, cleaner path, since the planner is randomised.
+   mid-path. That is jerky and hard on the servos. Re-plan, and you often
+   get a different, cleaner path, since the planner is randomised.
 4. **Does the gripper end at a usable angle?** Because IK is position-only
    (§6.4.1), the final gripper angle is whatever the solver happened to
    pick. It may end up horizontal, which cannot grab anything off a table.
@@ -1483,7 +1484,7 @@ a glance. Without it, you have to catch the moment.
 
 Press **Plan** again on the same goal. OMPL (the default planner) is
 randomised, so you get a different path each time. If the first one looks
-bad, ask again — this is normal practice, not a workaround.
+bad, ask again. This is normal practice, not a workaround.
 
 For predictable straight lines, switch the **Planning Pipeline** dropdown
 to **Pilz**, which does simple point-to-point and linear moves instead of
@@ -1491,8 +1492,8 @@ searching.
 
 ## 10.5 Check reachability without any robot at all
 
-Before planning anything, you can ask "can the arm even get there?" —
-offline, no driver, no simulation, no RViz:
+Before planning anything, you can ask "can the arm even get there?"
+offline, with no driver, no simulation and no RViz:
 
 ```bash
 python3 tools/reach_check.py --hover-z 0.10 --grasp-z 0.053
@@ -1537,7 +1538,7 @@ Before the first hardware run of any new motion:
 - [ ] It plans successfully in simulation
 - [ ] The trail shows no path through the table or through you
 - [ ] `reach_check.py` says the targets are reachable
-- [ ] Velocity Scaling is 0.1–0.2
+- [ ] Velocity Scaling is 0.1 to 0.2
 - [ ] The workspace is clear
 - [ ] Your hand is near the power switch
 
@@ -1550,9 +1551,9 @@ The goal: a camera sees an object, and the arm goes and picks it up.
 Three problems have to be solved, in this order:
 
 1. **Get camera frames into ROS** (§11.2)
-2. **Find the object in the image** — YOLO gives you a pixel location
+2. **Find the object in the image.** YOLO gives you a pixel location
    (§11.3)
-3. **Turn pixels into robot coordinates** — this is the calibration step,
+3. **Turn pixels into robot coordinates.** This is the calibration step,
    and it is the one that decides whether the arm grabs the object or the
    air next to it (§11.4)
 
@@ -1563,7 +1564,7 @@ The arm needs **metres**: "the cup is 18 cm forward and 3 cm left of my
 base."
 
 Normally converting between the two is hard, because a pixel corresponds to
-a whole *ray* going out from the camera — you cannot tell how far away
+a whole *ray* going out from the camera, so you cannot tell how far away
 something is from one image.
 
 But we get to cheat, because of one assumption: **everything sits flat on
@@ -1583,7 +1584,7 @@ Find those 9 numbers once and every future pixel converts instantly.
 
 - Moving the camera, even slightly. Recalibrate.
 - Moving the table, or changing its height.
-- Objects of noticeably different heights — the taller the object, the more
+- Objects of noticeably different heights. The taller the object, the more
   its top appears shifted. This is why picking targets should be short and
   roughly uniform.
 
@@ -1598,7 +1599,7 @@ ros2 run v4l2_camera v4l2_camera_node \
   --ros-args -p video_device:=/dev/video0 -p image_size:=[640,480]
 ```
 
-### 11.2.2 WSL2 — the camera cannot be passed through
+### 11.2.2 WSL2, where the camera cannot be passed through
 
 Do not spend an evening on this: **usbipd cannot forward a USB webcam**.
 Webcams stream using isochronous USB transfers, which USB/IP does not
@@ -1619,7 +1620,7 @@ ffmpeg -list_devices true -f dshow -i dummy     # find your camera's name
 .\scripts\windows\stream_camera.ps1 -Camera "HD Webcam"   # if not "USB Camera"
 ```
 
-Click **Allow** on the firewall prompt. Leave it running — the script
+Click **Allow** on the firewall prompt. Leave it running, because the script
 restarts ffmpeg after each client disconnect, which it needs to do because
 ffmpeg exits when the reader goes away.
 
@@ -1641,12 +1642,12 @@ ros2 run rqt_image_view rqt_image_view
 
 **If the image is blurry, twist the lens barrel.** These cameras are
 manual-focus and ship badly adjusted. Set focus at your working distance,
-about 20–40 cm.
+about 20 to 40 cm.
 
 ## 11.3 Object detection with YOLO
 
 YOLO is a neural network that finds objects and draws boxes around them.
-The bundled `yolov8n.pt` is the smallest pretrained model — it knows 80
+The bundled `yolov8n.pt` is the smallest pretrained model. It knows 80
 everyday classes (cup, bottle, cell phone, ...) and runs at a few frames
 per second on CPU, which is plenty here.
 
@@ -1658,9 +1659,9 @@ ros2 launch dofbot_vision yolo.launch.py \
 
 Two outputs:
 
-- `/detections` — JSON: class name, confidence, and `bbox_xyxy`, the box
-  corners in pixels
-- `/detections/image` — the image with boxes drawn, for `rqt_image_view`
+- `/detections` carries JSON with the class name, confidence, and
+  `bbox_xyxy`, the box corners in pixels
+- `/detections/image` is the image with boxes drawn, for `rqt_image_view`
 
 Check it works by holding up a cup:
 
@@ -1693,7 +1694,7 @@ scripts/homography.sh      # terminal 2
 
 Options: `--rotate 90` if your camera is mounted sideways, or
 `--image /path/frame.png` to work from a saved photo. It writes an
-annotated check image to `runs/calib_check.png` — **open it** and confirm
+annotated check image to `runs/calib_check.png`. **Open it** and confirm
 the detected corners really sit on the corners.
 
 ### 11.4.2 The manual way: four points
@@ -1701,8 +1702,8 @@ the detected corners really sit on the corners.
 For scenes with no chess board:
 
 1. Fix the camera. Any later movement invalidates everything.
-2. Put a small object at **4 well-spread, non-collinear spots** — think
-   corners of a large rectangle, not a line, not a tiny cluster.
+2. Put a small object at **4 well-spread, non-collinear spots**. Think of
+   the corners of a large rectangle, not a line and not a tiny cluster.
 3. For each spot, note the pixel centre from `/detections`, and measure the
    real position from the arm's base axis with a ruler (x forward, y left,
    in metres).
@@ -1735,8 +1736,8 @@ approach, close the gripper, lift, optionally place.
 
 > **Out of the box, `picking.yaml` contains a placeholder homography.** The
 > arm will run a complete, confident pick sequence at coordinates that are
-> roughly wrong. Treat that first run as an integration test — it proves
-> the plumbing works — and keep your hand near the power switch.
+> roughly wrong. Treat that first run as an integration test that proves the
+> plumbing works, and keep your hand near the power switch.
 
 ### 11.5.1 The safe tuning order
 
@@ -1744,7 +1745,7 @@ approach, close the gripper, lift, optionally place.
 
 1. Run with `grasp_z: 0.12`. The gripper should stop **directly above** the
    object without touching it. If it is not above the object, your
-   calibration is wrong — fix that before lowering anything.
+   calibration is wrong. Fix that before lowering anything.
 2. Only once it is centred above, lower `grasp_z` in steps: 0.10 → 0.08 →
    0.06, checking each time.
 3. Tune `gripper_closed` for grip strength.
@@ -1757,11 +1758,11 @@ and keep pushing, because it cannot tell (§7.10).
 
 | Setting | What it does |
 |---|---|
-| `target_classes` | only pick these (e.g. `"cup,bottle"`); empty = anything |
+| `target_classes` | only pick these (e.g. `"cup,bottle"`). Empty means anything |
 | `min_confidence` | ignore weak detections (default 0.2) |
-| `pick_once` | stop after one pick — leave this `true` while tuning |
+| `pick_once` | stop after one pick. Leave this `true` while tuning |
 | `cooldown` | seconds between picks |
-| `place_x` / `place_y` | set both to make it deposit objects at a fixed spot — instant pick-and-place demo |
+| `place_x` / `place_y` | set both to make it deposit objects at a fixed spot, for an instant pick-and-place demo |
 | `approach_z` / `grasp_z` / `lift_z` | heights for each phase |
 | `gripper_open` / `gripper_closed` | claw positions (§7.5) |
 
@@ -1785,16 +1786,16 @@ rest of the pipeline is unchanged.
 
 This is the project's most developed capability, and the best worked
 example of everything above. `docs/demo_runbook.md` is the operational
-checklist; this is the orientation.
+checklist. This is the orientation.
 
 ## 12.1 What it does
 
 The robot plays White on a printed 26 mm board. Stockfish chooses its
-moves, and the arm physically picks up and places the pieces — including
+moves, and the arm physically picks up and places the pieces, including
 removing captured pieces to a discard pile and moving the rook when it
 castles. You type your own moves.
 
-The arm can only physically reach about **ranks 1–4**, so at startup the
+The arm can only physically reach about **ranks 1 to 4**, so at startup the
 program maps every reachable square and restricts the engine to moves it
 can actually execute. When nothing legal is reachable, it announces its
 move and asks you to make it by hand.
@@ -1806,7 +1807,7 @@ python3 tools/gen_board.py --paper a3 --marker-mm 20 --border-mm 10 \
   --out /root/yahboom-robot-arm/board_a3
 ```
 
-Print `board_a3.pdf` at **100% / Actual size** — not "fit to page" — then
+Print `board_a3.pdf` at **100% / Actual size**, not "fit to page", then
 **check with a ruler that one square is 26 mm.** Everything downstream
 assumes it. Trim the paper outside the grey border (otherwise the near
 margin fouls the robot's base) and glue it to something flat.
@@ -1819,7 +1820,7 @@ housing edge):
 
 ```
      a8 ................ h8      far side (yours)
-     a1 ................ h1      rank 1 — ARM SIDE
+     a1 ................ h1      rank 1, ARM SIDE
               ~12 cm
            [robot base]
 ```
@@ -1831,29 +1832,29 @@ you put it back without recalibrating.
 ## 12.4 Calibrate
 
 `config/board.yaml` is the single source of truth for where the board is.
-Every tool reads it; command-line flags override it.
+Every tool reads it, and command-line flags override it.
 
 ```yaml
 a1: [0.135, 0.080]   # centre of square a1 in metres (x forward, y left)
-square: 0.026        # square size — ruler-check the print
+square: 0.026        # square size, ruler-check the print
 yaw_deg: -90.0       # which way the files a->h run
 mirror: false        # flip if hovers land mirrored
 ```
 
 The calibration loop:
 
-1. **`reach_check.py`** — offline, confirms the placement is sensible
+1. **`reach_check.py`** runs offline and confirms the placement is sensible
    before you touch anything.
-2. **`hover_test.py`** — the arm hovers over named squares so you can see
-   the error:
+2. **`hover_test.py`** hovers the arm over named squares so you can see the
+   error:
    ```bash
    python3 tools/hover_test.py --gripper -1.0 a1 h1 d4 e3
    ```
    Consistently off in one direction → shift `a1`. Files and ranks swapped
    or mirrored → fix `yaw_deg` / `mirror`.
-3. **§9 teleop** — find `grasp_z` (fingertips at gripping height) and
-   `grip_closed` (holds firmly without straining).
-4. **`place_test.py`** — picks a piece and puts it back on the *same*
+3. **§9 teleop** is where you find `grasp_z`, the fingertip gripping height,
+   and `grip_closed`, the grip that holds firmly without straining.
+4. **`place_test.py`** picks a piece and puts it back on the *same*
    square. Wherever it lands relative to where you put it is exactly the
    systematic error. Measure it with a ruler and record it as a per-square
    offset anchor in `board.yaml`.
@@ -1888,11 +1889,11 @@ what you are looking at when something goes subtly wrong:
   at one angle and released at another lands offset by a predictable
   amount, which the code calculates and cancels.
 - **The claw drags pieces to its own centre when it grips**, so where a
-  piece lands is not where you commanded — hence `place_test.py`.
+  piece lands is not where you commanded, hence `place_test.py`.
 - **The approach angle comes from the *nominal* square centre**, not the
   corrected one. Otherwise adjusting a square's calibration offset would
   move the approach angle, which moves the fingertip, which changes the
-  offset you needed — and the calibration never converges.
+  offset you needed, and the calibration never converges.
 
 ---
 
@@ -1910,7 +1911,7 @@ what you are looking at when something goes subtly wrong:
 
 | Script | Purpose |
 |---|---|
-| `scripts/driver.sh` | the arm driver — foreground, keeps its log visible |
+| `scripts/driver.sh` | the arm driver, runs in the foreground so its log stays visible |
 | `scripts/moveit.sh` | MoveIt + RViz for real hardware (`--no-rviz` for headless) |
 | `scripts/sim.sh` | full simulation, no hardware (`--no-rviz` too) |
 | `scripts/camera.sh` | camera bridge → `/image_raw` |
@@ -1939,11 +1940,11 @@ what you are looking at when something goes subtly wrong:
 | `serial_wiggle.py` | raw-serial "is the hardware alive?" test | serial, **driver stopped** |
 | `gripper_test.py` | raw-serial claw sweep | serial, **driver stopped** |
 | `probe_protocol.py` | hunt for an undocumented servo-read command | serial, **driver stopped** |
-| `arm_client.py` | shared IK + motion library — imported, not run | — |
-| `board_config.py` | shared board maths — imported, not run | — |
+| `arm_client.py` | shared IK + motion library, imported rather than run | none |
+| `board_config.py` | shared board maths, imported rather than run | none |
 
 The three raw-serial tools talk to `/dev/ttyUSB0` directly. **Stop the
-driver first** — two programs writing one serial port corrupt each other's
+driver first.** Two programs writing one serial port corrupt each other's
 packets.
 
 ## 13.4 Configuration files
@@ -2010,9 +2011,9 @@ python3 tools/chess_game.py --skill 3
 |---|---|
 | RViz opens, no robot / `robot_description` errors | stale or unsourced build → clean rebuild |
 | RViz renders garbage | add `-e LIBGL_ALWAYS_SOFTWARE=1` to the container |
-| Controllers stuck `inactive` | plugin load error in `ros2_control_node` output; usually stale artifacts |
-| Dragging the orientation ring does nothing | expected — position-only IK (§6.4.1) |
-| Planning always fails | target outside the workspace; verify with `reach_check.py` (§10.5) |
+| Controllers stuck `inactive` | plugin load error in `ros2_control_node` output, usually stale artifacts |
+| Dragging the orientation ring does nothing | expected, because IK is position-only (§6.4.1) |
+| Planning always fails | target outside the workspace. Verify with `reach_check.py` (§10.5) |
 | IK error `-31` on every pick | `ros2 param get /move_group robot_description_kinematics.arm.position_only_ik` must be `True` |
 
 ## 14.3 The arm
@@ -2024,10 +2025,10 @@ python3 tools/chess_game.py --skill 3
 | `Permission denied: /dev/ttyUSB0` | not in `dialout` → `sudo usermod -aG dialout $USER`, then log out and in |
 | Arm jumps violently at startup | it was not centered before the driver started → power cycle, press K1, restart (§1.5) |
 | Arm stops responding mid-session | USB dropped → the watcher re-attaches, but repeated drops mean power trouble: check the DC supply and cable |
-| Motion is jerky / pulsing | something is sending dense waypoints — check `min_segment_ms` is still 3000 (§7.4) |
+| Motion is jerky / pulsing | something is sending dense waypoints. Check `min_segment_ms` is still 3000 (§7.4) |
 | Trajectory goal rejected | another motion is running, or two `move_group` nodes are up → `ros2 node list` |
 | Servo buzzes and gets hot | it is straining against a limit or an obstacle. Power off. It cannot tell you (§7.10) |
-| Arm reaches the wrong place, consistently | open-loop offset — it did not start centered, or `tool_len` needs adjusting |
+| Arm reaches the wrong place, consistently | open-loop offset. It did not start centered, or `tool_len` needs adjusting |
 
 ## 14.4 Network (Pi setup)
 
@@ -2038,7 +2039,7 @@ See §4.7.
 | Symptom | Cause → fix |
 |---|---|
 | Camera attaches in WSL but `/image_raw` is silent; `dmesg` spams `vhci ... Not yet implemented` | usbipd cannot stream webcams → use the ffmpeg bridge (§11.2.2) |
-| Bridge node: `Connection refused` | ffmpeg not running (it exits when a client disconnects) → restart `stream_camera.ps1`; check the firewall allows port 8090 |
+| Bridge node: `Connection refused` | ffmpeg not running (it exits when a client disconnects) → restart `stream_camera.ps1` and check the firewall allows port 8090 |
 | Blurry image | manual focus → twist the lens barrel |
 | No detections at all | object not in YOLO's 80 classes, or `min_confidence` too high, or too dark |
 | Detections fine, picks are offset | camera moved after calibration → recalibrate (§11.4) |
@@ -2049,59 +2050,59 @@ See §4.7.
 
 # 15. Glossary
 
-**Action** — a ROS request that takes time, reports progress, and can be
+**Action.** A ROS request that takes time, reports progress, and can be
 cancelled. Used for "move the arm", where a plain message would not tell
 you when it finished.
 
-**colcon** — the build tool for ROS 2 workspaces (§5.5).
+**colcon.** The build tool for ROS 2 workspaces (§5.5).
 
-**DDS** — the networking layer underneath ROS 2. It is what makes nodes on
+**DDS.** The networking layer underneath ROS 2. It is what makes nodes on
 different machines find each other automatically (§4.1).
 
-**Forward kinematics (FK)** — given the joint angles, where is the gripper?
-Easy: one calculation.
+**Forward kinematics (FK).** Given the joint angles, where is the gripper?
+Easy, one calculation.
 
-**Homography** — the 3×3 matrix that converts camera pixels to table
+**Homography.** The 3×3 matrix that converts camera pixels to table
 coordinates, valid because everything is on one flat plane (§11.1).
 
-**Inverse kinematics (IK)** — given a target position, what should the
-joint angles be? Hard: there may be several answers, or none (§7.6).
+**Inverse kinematics (IK).** Given a target position, what should the joint
+angles be? Hard, because there may be several answers or none (§7.6).
 
-**Joint** — one motor's axis of rotation. This arm has 5 plus a gripper.
+**Joint.** One motor's axis of rotation. This arm has 5 plus a gripper.
 
-**Launch file** — a Python script that starts several nodes at once with
+**Launch file.** A Python script that starts several nodes at once with
 the right settings. `ros2 launch <package> <file>`.
 
-**Link** — a rigid part of the robot, between joints.
+**Link.** A rigid part of the robot, between joints.
 
-**MoveIt** — the motion planning framework: works out a path from A to B.
+**MoveIt.** The motion planning framework. It works out a path from A to B.
 
-**Node** — one running program in ROS. Nodes talk over topics, services,
+**Node.** One running program in ROS. Nodes talk over topics, services,
 and actions.
 
-**Open loop** — commanding without feedback. This arm cannot report where
+**Open loop.** Commanding without feedback. This arm cannot report where
 it really is, so everything is open loop (§7.10).
 
-**Package** — one folder of related code with a `package.xml` (§5.4).
+**Package.** One folder of related code with a `package.xml` (§5.4).
 
-**Pose** — a position plus an orientation.
+**Pose.** A position plus an orientation.
 
-**RViz** — the 3D visualiser. It draws what ROS believes is happening; it
+**RViz.** The 3D visualiser. It draws what ROS believes is happening and
 does not itself control anything.
 
-**Servo** — a motor that holds a commanded angle. Six of them here.
+**Servo.** A motor that holds a commanded angle. Six of them here.
 
-**SRDF** — a companion to the URDF that groups joints (`arm`, `gripper`)
+**SRDF.** A companion to the URDF that groups joints (`arm`, `gripper`)
 for MoveIt.
 
-**Topic** — a named stream of messages, e.g. `/joint_states`. Publishers
-send, subscribers receive, neither knows the other exists.
+**Topic.** A named stream of messages such as `/joint_states`. Publishers
+send and subscribers receive, and neither knows the other exists.
 
-**Trajectory** — a list of joint positions with timestamps (§7.3).
+**Trajectory.** A list of joint positions with timestamps (§7.3).
 
-**URDF** — the XML file describing the robot's physical structure (§7.2).
+**URDF.** The XML file describing the robot's physical structure (§7.2).
 
-**Workspace** — the folder holding your ROS packages and their build
+**Workspace.** The folder holding your ROS packages and their build
 output (§5.1).
 
-**YOLO** — the neural network used for object detection (§11.3).
+**YOLO.** The neural network used for object detection (§11.3).
