@@ -47,7 +47,7 @@ means you can proceed.
 ## C. Board (first time per board only)
 
 Print and place the board per §12.2 and §12.3, then run the calibration
-loop in §12.4 until `hover_test.py` lands centred on the squares you check.
+loop in §12.4 until `hover_test.py` lands centered on the squares you check.
 Verify the playable zone with the numbers you ended up with:
 
 ```bash
@@ -75,14 +75,14 @@ change.
 - Type moves as SAN (`e5`, `Nf6`) or UCI (`e7e5`). `quit` resigns.
 - On `OUT OF REACH`, make the robot's announced move for it and press Enter.
 - `--skill 0..20` sets strength, `--move-time 3` slows the arm for
-  showmanship, `--fen` resumes a position.
+  demonstrations, `--fen` resumes a position.
 
 ## Troubleshooting
 
-Full tables in §14. The three that bite during a demo:
+Full tables in §14. The three that come up most during a demo:
 
-- **ROS happy, arm deaf.** Check terminal 1 for serial errors. If
-  `ls /dev/ttyUSB*` is empty, re-run `scripts/usb.sh` on the host.
+- **ROS is running but the arm does not move.** Check terminal 1 for serial
+  errors. If `ls /dev/ttyUSB*` is empty, re-run `scripts/usb.sh` on the host.
 - **USB drops mid-game.** The watcher re-attaches and the driver
   reconnects, but repeated drops mean power trouble. Check the DC supply
   and the cable.
