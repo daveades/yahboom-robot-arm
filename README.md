@@ -6,18 +6,17 @@ control on a Raspberry Pi, and a vision pipeline for object detection.
 
 ## Documentation
 
-- **[Setup Guide](docs/setup_guide.md)** — get running in your own
-  environment (WSL2 + Docker, native Ubuntu, or other), from clone to a
-  working pick, including platform-specific configuration. Start here.
-- [Getting Started](docs/getting_started.md) — build, simulation demo,
-  real-hardware bringup, vision, and troubleshooting.
+- **[User Manual](docs/user_manual.md)** — install through vision
+  pick-and-place, in order, with the explanations. **Start here.**
+- [Demo Runbook](docs/demo_runbook.md) — cold-machine checklist for the
+  chess demo.
 
 ## Repository layout
 
 - `dofbot_ros2_ws/` ROS 2 workspace (packages live in `dofbot_ros2_ws/src`)
-- `scripts/` Host-side scripts (deploy to Pi, MoveIt Setup Assistant)
-- `tools/` Small utilities (e.g., checkerboard generation)
-- `experiments/` One-off test scripts for hardware bring-up
+- `scripts/` Bringup scripts: container, USB, driver, MoveIt, sim, camera
+- `tools/` Standalone Python utilities: teleop, calibration, the chess game
+- `config/` Board model (`board.yaml`) — the single source of truth
 - `docs/` Documentation
 
 ## ROS packages
@@ -25,21 +24,20 @@ control on a Raspberry Pi, and a vision pipeline for object detection.
 | Package | Role |
 |---|---|
 | `dofbot_description` | URDF/xacro, meshes, RViz configs |
-| `dofbot_driver` | Serial driver node for the arm servos |
-| `dofbot_ros2_control` | ros2_control hardware interface (topic bridge to the driver) |
-| `dofbot_moveit_config` | MoveIt configuration (launch files are thin wrappers) |
+| `dofbot_driver` | Serial driver; serves the trajectory actions on hardware |
+| `dofbot_moveit_config` | MoveIt configuration (config only — no launch files) |
 | `dofbot_bringup` | System launch files — the main entrypoints |
 | `dofbot_vision` | Camera, YOLO/ArUco detection, picking nodes |
 
-## Quick reference
+On real hardware the driver executes trajectories itself; `ros2_control` is
+used only in simulation. See [user manual §7.9](docs/user_manual.md).
 
-Everything below is covered in detail in the
-[Getting Started guide](docs/getting_started.md); this is just a reminder of
-the entrypoints.
+## Quick reference
 
 | Task | Command |
 |---|---|
-| Simulate (no hardware) | `ros2 launch dofbot_moveit_config demo.launch.py` |
-| Arm control on the Pi | `ros2 launch dofbot_bringup control.launch.py` |
-| MoveIt + RViz on the PC | `ros2 launch dofbot_bringup moveit.launch.py` |
-| Sync packages to the Pi | `scripts/sync_to_pi.sh` |
+| Simulate (no hardware) | `scripts/sim.sh` — or `ros2 launch dofbot_bringup demo.launch.py` |
+| Arm driver (machine wired to the arm) | `scripts/driver.sh` — or `ros2 launch dofbot_bringup control.launch.py` |
+| MoveIt + RViz | `scripts/moveit.sh` — or `ros2 launch dofbot_bringup moveit.launch.py` |
+| Keyboard teleop | `python3 tools/teleop_key.py` |
+| Health check | `scripts/status.sh` |
