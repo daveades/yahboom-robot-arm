@@ -1,7 +1,8 @@
 # Chess Demo Runbook
 
 Cold machine to playing the robot, in order. Background and calibration
-theory are in [user_manual.md §12](user_manual.md). This is the checklist.
+theory are in [user_manual.md §12](user_manual.md#12-the-chess-demo). This is
+the checklist.
 
 The robot plays **White** on the printed 26 mm board and can physically
 reach roughly **ranks 1 to 4**. It restricts its own move choice to squares
@@ -46,8 +47,8 @@ means you can proceed.
 
 ## C. Board (first time per board only)
 
-Print and place the board per §12.2 and §12.3, then run the calibration
-loop in §12.4 until `hover_test.py` lands centered on the squares you check.
+Print and place the board per [§12.2](user_manual.md#122-print-the-board) and [§12.3](user_manual.md#123-place-the-board), then run the calibration
+loop in [§12.4](user_manual.md#124-calibrate) until `hover_test.py` lands centered on the squares you check.
 Verify the playable zone with the numbers you ended up with:
 
 ```bash
@@ -79,7 +80,7 @@ change.
 
 ## Troubleshooting
 
-Full tables in §14. The three that come up most during a demo:
+Full tables in [§14](user_manual.md#14-troubleshooting). The three that come up most during a demo:
 
 - **ROS is running but the arm does not move.** Check terminal 1 for serial
   errors. If `ls /dev/ttyUSB*` is empty, re-run `scripts/usb.sh` on the host.
@@ -87,4 +88,4 @@ Full tables in §14. The three that come up most during a demo:
   reconnects, but repeated drops mean power trouble. Check the DC supply
   and the cable.
 - **One square consistently off.** The board moved. Re-seat it on its
-  traced outline, or redo the `hover_test.py` step of §12.4.
+  traced outline, or redo the `hover_test.py` step of [§12.4](user_manual.md#124-calibrate).

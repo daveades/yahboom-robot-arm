@@ -30,7 +30,7 @@ control on a Raspberry Pi, and a vision pipeline for object detection.
 | `dofbot_vision` | Camera, YOLO/ArUco detection, picking nodes |
 
 On real hardware the driver executes trajectories itself. `ros2_control` is
-used only in simulation. See [user manual §7.9](docs/user_manual.md).
+used only in simulation. See [user manual §7.9](docs/user_manual.md#79-why-hardware-and-simulation-take-different-routes).
 
 ## Quick reference
 
