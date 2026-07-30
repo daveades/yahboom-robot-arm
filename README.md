@@ -10,6 +10,8 @@ control on a Raspberry Pi, and a vision pipeline for object detection.
   pick-and-place, in order, with the explanations. **Start here.**
 - [Demo Runbook](docs/demo_runbook.md) is the cold-machine checklist for
   the chess demo.
+- [user_manual.pdf](docs/user_manual.pdf) is the same manual set for A4
+  printing. Rebuild it with `python3 tools/manual_to_html.py --pdf`.
 
 ## Repository layout
 
